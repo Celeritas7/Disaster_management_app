@@ -77,6 +77,11 @@ test('a real Chromium install preserves other apps and local data across offline
   await page.evaluate(async()=>{const reg=await navigator.serviceWorker.getRegistration();await reg.update();});
   await page.getByRole('button',{name:'Reload to update'}).waitFor({timeout:15000});
   assert.equal(await page.locator('#home-address').inputValue(),'text not yet saved');
+  // Worker activation/cache cleanup can finish after the controller event.
+  await page.waitForFunction(async()=>{
+    const names=await caches.keys();
+    return names.includes('disaster-management-app-v4') && !names.includes('disaster-management-app-v3');
+  },null,{timeout:8000});
   let keys = await page.evaluate(()=>caches.keys());
   assert.ok(keys.includes('kg-chart-offline-v1'));
   assert.ok(keys.includes('disaster-management-app-v4'));

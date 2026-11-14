@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+html,body{margin:0;background:#141418;color:#ecebf1}
+a{color:#a9b2f2}a:hover{color:#ffffff}
+*{box-sizing:border-box}
+::-webkit-scrollbar{width:0;height:0}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;gap:36px;padding:36px 28px;justify-content:center;align-items:flex-start;flex-wrap:wrap;font-family:'Helvetica Neue',Helvetica,Arial,'Hiragino Sans','Noto Sans JP',sans-serif">
+
+<x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" dark="{{ true }}" hint-size="412px,892px">
+<div style="height:100%;display:flex;flex-direction:column;background:{{ bg }};color:#ecebf1;font-family:'Helvetica Neue',Helvetica,Arial,'Hiragino Sans','Noto Sans JP',sans-serif;-webkit-font-smoothing:antialiased">
+
+<!-- ═══ ONBOARDING ═══ -->
+<sc-if value="{{ isOnboarding }}" hint-placeholder-val="{{ true }}">
+<div data-screen-label="Onboarding" style="flex:1;overflow:auto;padding:28px 22px 24px;display:flex;flex-direction:column">
+  <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;letter-spacing:.18em;color:#8d8d9c">
+    <span>SETUP · {{ obN }} / 7</span>
+    <span style="font-family:'SF Mono',Menlo,Consolas,monospace;letter-spacing:0;color:#a9b2f2">{{ obJp }}</span>
+  </div>
+  <div style="display:flex;gap:4px;margin-top:14px">
+    <sc-for list="{{ obSegs }}" as="s" hint-placeholder-count="7"><div style="flex:1;height:3px;border-radius:2px;background:{{ s.bg }}"></div></sc-for>
+  </div>
+  <div style="margin-top:40px;width:40px;height:40px;border-radius:10px;background:{{ obIconBg }};border:1px solid rgba(255,255,255,.1)"></div>
+  <h1 style="margin:20px 0 0;font-size:30px;line-height:1.15;font-weight:400;letter-spacing:-.01em;text-wrap:pretty">{{ obTitle }}</h1>
+  <p style="margin:12px 0 0;font-size:16px;line-height:1.5;color:#a3a3b0;text-wrap:pretty">{{ obBody }}</p>
+  <div style="margin-top:24px;flex:none;border:1px solid rgba(255,255,255,.09);border-radius:14px;background:#13141a;overflow:hidden">
+    <sc-for list="{{ obPoints }}" as="p" hint-placeholder-count="3">
+      <div style="display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-top:1px solid rgba(255,255,255,.06);font-size:14px;line-height:1.4">
+        <span style="width:8px;height:8px;border-radius:50%;background:{{ p.dot }};margin-top:6px;flex:none"></span>
+        <span style="flex:1;color:#dcdbe3">{{ p.t }}</span>
+        <span style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:12px;color:#8d8d9c">{{ p.r }}</span>
+      </div>
+    </sc-for>
+  </div>
+  <p style="margin:16px 0 0;font-size:13px;line-height:1.5;color:#6f6f7e">{{ obWhy }}</p>
+  <div style="flex:1"></div>
+  <div onClick="{{ obNext }}" style="margin-top:28px;height:56px;border-radius:14px;background:#4a5bd8;color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;cursor:pointer">{{ obCta }}</div>
+  <div onClick="{{ obSkip }}" style="margin-top:14px;text-align:center;font-size:15px;color:#a9b2f2;cursor:pointer">{{ obSkipLabel }}</div>
+</div>
+</sc-if>
+
+<!-- ═══ WATCH ═══ -->
+<sc-if value="{{ isWatch }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Watch" style="flex:1;overflow:auto;padding:26px 22px 20px;display:flex;flex-direction:column">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <div style="display:flex;align-items:center;gap:12px">
+      <svg width="22" height="18" viewBox="0 0 22 18" fill="none" stroke="#a9b2f2" stroke-width="1.6"><path d="M1 9s3.6-7 10-7 10 7 10 7-3.6 7-10 7S1 9 1 9z"/><circle cx="11" cy="9" r="3"/></svg>
+      <span style="font-size:13px;letter-spacing:.2em;color:#8d8d9c">WATCH</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px">
+      <span style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:12px;color:#8d8d9c">{{ watchClock }}</span>
+      <div onClick="{{ goSettings }}" style="width:28px;height:28px;border-radius:50%;border:1px solid rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;cursor:pointer"><div style="width:10px;height:10px;border-radius:50%;border:2px solid #8d8d9c"></div></div>
+    </div>
+  </div>
+
+  <sc-if value="{{ watchPred }}" hint-placeholder-val="{{ true }}">
+    <!-- radar / card layouts share the headline -->
+    <div style="margin-top:34px;display:flex;align-items:center;gap:14px">
+      <span style="width:10px;height:10px;border-radius:50%;background:#e6a94a"></span>
+      <h1 style="margin:0;font-size:30px;font-weight:400;letter-spacing:-.01em">One thing to look at</h1>
+    </div>
+    <p style="margin:8px 0 0;font-size:16px;color:#8d8d9c">Everything else is clear.</p>
+
+    <sc-if value="{{ watchIsList }}" hint-placeholder-val="{{ false }}">
+      <div style="margin-top:22px;border-top:1px solid rgba(255,255,255,.08)">
+        <div style="padding:16px 0;border-bottom:1px solid rgba(255,255,255,.08)">
+          <div style="display:flex;justify-content:space-between;font-size:12px;letter-spacing:.14em;color:#e6a94a"><span>COMMUTE · TOMORROW</span><span style="font-family:'SF Mono',Menlo,Consolas,monospace;letter-spacing:0;color:#dcdbe3">72%</span></div>
+          <div style="margin-top:8px;font-size:17px;line-height:1.35">Heavy rain band over your morning train window. Leave 20 min earlier or work from home.</div>
+          <div style="margin-top:12px;display:flex;gap:8px">
+            <div style="padding:10px 14px;border-radius:10px;background:#4a5bd8;color:#fff;font-size:14px;cursor:pointer">Set 20 min earlier alarm</div>
+            <div onClick="{{ dismissPred }}" style="padding:10px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.14);font-size:14px;cursor:pointer">Not relevant</div>
+          </div>
+        </div>
+        <div style="padding:16px 0;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;font-size:16px"><span style="color:#8d8d9c">Weather</span><span style="color:#e6a94a">Rain tomorrow</span></div>
+        <div style="padding:16px 0;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;font-size:16px"><span style="color:#8d8d9c">Quake activity</span><span>Normal</span></div>
+        <div style="padding:16px 0;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;font-size:16px"><span style="color:#8d8d9c">Upcoming trip</span><span>None in 14 days</span></div>
+        <div style="padding:16px 0;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;font-size:16px"><span style="color:#8d8d9c">Readiness</span><span onClick="{{ goReadiness }}" style="color:#a9b2f2;cursor:pointer">{{ readyScore }} · 3 gaps</span></div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ watchNotList }}" hint-placeholder-val="{{ true }}">
+      <div style="margin-top:22px;border:1px solid rgba(255,255,255,.09);border-radius:16px;background:#13141a;padding:20px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <span style="font-size:12px;letter-spacing:.16em;color:#a9b2f2">TOMORROW'S COMMUTE</span>
+          <span style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:13px;color:#dcdbe3">72% conf.</span>
+        </div>
+        <p style="margin:16px 0 0;font-size:19px;line-height:1.4;text-wrap:pretty">Heavy rain band likely over your morning train window. Leave 20 min earlier or work from home.</p>
+        <div style="height:1px;background:rgba(255,255,255,.08);margin:18px 0"></div>
+        <div style="font-size:12px;letter-spacing:.14em;color:#8d8d9c">EVIDENCE</div>
+        <p style="margin:8px 0 0;font-size:14px;line-height:1.5;color:#b3b3bf">Weather: heavy-rain advisory (大雨注意報) forecast 06:00–10:00 · Calendar: first meeting 09:00 · Your line had delays on 3 of the last 4 heavy-rain mornings</p>
+        <div style="margin-top:18px;display:flex;gap:10px">
+          <div style="flex:1;height:46px;border-radius:12px;background:#4a5bd8;color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer">Set 20 min earlier alarm</div>
+          <div onClick="{{ dismissPred }}" style="padding:0 16px;height:46px;border-radius:12px;border:1px solid rgba(255,255,255,.14);display:flex;align-items:center;font-size:15px;color:#b3b3bf;cursor:pointer">Not relevant</div>
+        </div>
+      </div>
+      <sc-if value="{{ watchIsRadar }}" hint-placeholder-val="{{ true }}">
+        <div style="margin-top:26px;font-size:12px;letter-spacing:.16em;color:#8d8d9c">RISK RADAR</div>
+        <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="border:1px solid rgba(255,255,255,.09);border-radius:14px;padding:14px 16px"><div style="font-size:13px;color:#8d8d9c">Weather</div><div style="margin-top:6px;font-size:17px;color:#e6a94a">Rain tomorrow</div></div>
+          <div style="border:1px solid rgba(255,255,255,.09);border-radius:14px;padding:14px 16px"><div style="font-size:13px;color:#8d8d9c">Quake activity</div><div style="margin-top:6px;font-size:17px">Normal</div></div>
+          <div style="border:1px solid rgba(255,255,255,.09);border-radius:14px;padding:14px 16px"><div style="font-size:13px;color:#8d8d9c">Commute</div><div style="margin-top:6px;font-size:17px;color:#e6a94a">See above</div></div>
+          <div style="border:1px solid rgba(255,255,255,.09);border-radius:14px;padding:14px 16px"><div style="font-size:13px;color:#8d8d9c">Upcoming trip</div><div style="margin-top:6px;font-size:17px">None in 14 days</div></div>
+        </div>
+      </sc-if>
+      <sc-if value="{{ watchIsCard }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top:22px;font-size:14px;line-height:1.6;color:#8d8d9c">Weather <span style="color:#e6a94a">rain</span> · Quake <span style="color:#dcdbe3">normal</span> · Trip <span style="color:#dcdbe3">none</span></div>
+      </sc-if>
+      <div style="flex:1"></div>
+      <div style="margin-top:22px;display:flex;justify-content:space-between;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:12px;color:#8d8d9c"><span>Alarm accuracy 30d: 11 / 13</span><span onClick="{{ goReadiness }}" style="cursor:pointer">Readiness {{ readyScore }}</span></div>
+    </sc-if>
+  </sc-if>
+
+  <sc-if value="{{ watchQuiet }}" hint-placeholder-val="{{ false }}">
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px 0">
+      <div style="position:relative;width:200px;height:200px">
+        <div style="position:absolute;inset:0;border-radius:50%;border:1px solid rgba(255,255,255,.1)"></div>
+        <div style="position:absolute;inset:32px;border-radius:50%;border:1px solid rgba(255,255,255,.1)"></div>
+        <div style="position:absolute;inset:64px;border-radius:50%;border:1px solid rgba(255,255,255,.1)"></div>
+        <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,255,255,.08)"></div>
+        <div style="position:absolute;top:50%;left:0;right:0;height:1px;background:rgba(255,255,255,.08)"></div>
+        <div style="position:absolute;inset:84px;border-radius:50%;border:1px solid #4a5bd8"></div>
+        <div style="position:absolute;inset:94px;border-radius:50%;background:#4a5bd8"></div>
+      </div>
+      <h1 style="margin:40px 0 0;font-size:34px;font-weight:400">All clear</h1>
+      <p style="margin:14px 0 0;font-size:16px;line-height:1.5;color:#8d8d9c;max-width:280px;text-wrap:pretty">Nothing to say right now. The next thing I'll check is your departure from [Office], around 18:30.</p>
+      <div onClick="{{ restorePred }}" style="margin-top:18px;font-size:13px;color:#4f4f5e;cursor:pointer">Show last prediction</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);text-align:center;padding-bottom:6px">
+      <div><div style="font-size:13px;color:#8d8d9c">Weather</div><div style="margin-top:4px;font-size:17px">Calm</div></div>
+      <div><div style="font-size:13px;color:#8d8d9c">Quake</div><div style="margin-top:4px;font-size:17px">Normal</div></div>
+      <div><div style="font-size:13px;color:#8d8d9c">Commute</div><div style="margin-top:4px;font-size:17px">On time</div></div>
+      <div><div style="font-size:13px;color:#8d8d9c">Trip</div><div style="margin-top:4px;font-size:17px">None</div></div>
+    </div>
+  </sc-if>
+</div>
+</sc-if>
+
+<!-- ═══ LOCK SCREEN · DEPARTURE CHECK ═══ -->
+<sc-if value="{{ isLock }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Departure Check" style="flex:1;overflow:auto;padding:40px 16px 20px;display:flex;flex-direction:column;align-items:center">
+  <div style="font-size:16px;color:#dcdbe3">Wednesday, 14 October</div>
+  <div style="font-size:84px;font-weight:300;line-height:1;margin-top:8px;letter-spacing:-.03em">18:31</div>
+  <div style="margin-top:70px;width:100%;border:1px solid rgba(255,255,255,.09);border-radius:22px;background:#15161d;padding:18px 18px 16px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="width:24px;height:24px;border-radius:7px;background:#4a5bd8;display:flex;align-items:center;justify-content:center"><svg width="14" height="11" viewBox="0 0 22 18" fill="none" stroke="#fff" stroke-width="2"><path d="M1 9s3.6-7 10-7 10 7 10 7-3.6 7-10 7S1 9 1 9z"/><circle cx="11" cy="9" r="3"/></svg></div>
+      <span style="flex:1;font-size:12px;letter-spacing:.14em;color:#8d8d9c">DISASTER MGMT</span>
+      <span style="font-size:13px;color:#8d8d9c">now</span>
+    </div>
+    <div style="margin-top:14px;font-size:19px">Leaving [Office] — quick check</div>
+    <div style="margin-top:4px;font-size:14px;color:#8d8d9c">Tap anything that's missing. Two seconds.</div>
+    <div style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      <sc-for list="{{ lockItems }}" as="it" hint-placeholder-count="3">
+        <div onClick="{{ it.toggle }}" style="border:1px solid {{ it.border }};background:{{ it.bg }};border-radius:14px;padding:16px 8px 14px;text-align:center;cursor:pointer">
+          <div style="width:22px;height:22px;margin:0 auto;border:2px solid {{ it.fg }};border-radius:5px"></div>
+          <div style="margin-top:10px;font-size:16px">{{ it.name }}</div>
+          <div style="margin-top:2px;font-size:12px;color:{{ it.fg }}">{{ it.status }}</div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="margin-top:14px;display:flex;gap:10px">
+      <div onClick="{{ lockAllWithMe }}" style="flex:1;height:50px;border-radius:14px;background:#4a5bd8;color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer">All with me</div>
+      <div onClick="{{ lockMissingGo }}" style="flex:1.4;height:50px;border-radius:14px;border:1px solid rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer">Something's missing</div>
+    </div>
+    <div style="height:1px;background:rgba(255,255,255,.08);margin:14px 0"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;color:#8d8d9c"><span>Why now: you crossed the [Office] geofence</span><span onClick="{{ goWatch }}" style="color:#a9b2f2;cursor:pointer">Not relevant</span></div>
+  </div>
+  <div style="flex:1"></div>
+  <div style="font-size:12px;color:#5f5f6e;text-align:center">Bluetooth tags are optional — without them, it's a manual tap.</div>
+</div>
+</sc-if>
+
+<!-- ═══ STRANDED ═══ -->
+<sc-if value="{{ isStranded }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Stranded" style="flex:1;overflow:auto;padding:24px 22px 24px;display:flex;flex-direction:column">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <span onClick="{{ goWatch }}" style="font-size:22px;color:#8d8d9c;cursor:pointer;line-height:1">‹</span>
+    <span style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:12px;color:#8d8d9c">18:34 · 400 m from [Office]</span>
+  </div>
+  <div style="margin-top:34px;font-size:12px;letter-spacing:.16em;color:#e6a94a">STRANDED</div>
+  <h1 style="margin:8px 0 0;font-size:30px;font-weight:400;letter-spacing:-.01em">No pass, no cash.</h1>
+  <p style="margin:8px 0 0;font-size:15px;color:#8d8d9c">Wallet tag last seen: [Office], desk drawer, 18:29.</p>
+  <div style="margin-top:22px;border:1px solid #4a5bd8;border-radius:16px;background:#13141a;padding:20px">
+    <div style="display:flex;align-items:center;gap:12px">
+      <span style="width:30px;height:30px;border-radius:50%;background:#4a5bd8;display:flex;align-items:center;justify-content:center;font-size:15px">{{ planN }}</span>
+      <span style="font-size:12px;letter-spacing:.16em;color:#a9b2f2">NEXT ACTION</span>
+    </div>
+    <p style="margin:18px 0 0;font-size:22px;line-height:1.3;text-wrap:pretty">{{ planTitle }}</p>
+    <div style="margin-top:18px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <div><div style="font-size:12px;color:#8d8d9c">Distance</div><div style="margin-top:4px;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:17px">{{ planDist }}</div></div>
+      <div><div style="font-size:12px;color:#8d8d9c">Walk</div><div style="margin-top:4px;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:17px">{{ planWalk }}</div></div>
+      <div><div style="font-size:12px;color:#8d8d9c">Cost</div><div style="margin-top:4px;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:17px">{{ planCost }}</div></div>
+    </div>
+    <div style="margin-top:16px;font-size:14px;color:#7fd6a4">✓ {{ planCheck }}</div>
+    <div style="margin-top:18px;display:flex;gap:10px">
+      <div onClick="{{ planGo }}" style="flex:1.8;height:50px;border-radius:14px;background:{{ planGoBg }};color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer">{{ planGoLabel }}</div>
+      <div onClick="{{ planFail }}" style="flex:1;height:50px;border-radius:14px;border:1px solid rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:15px;color:#b3b3bf;cursor:pointer">Won't work</div>
+    </div>
+  </div>
+  <div style="margin-top:26px;font-size:12px;letter-spacing:.16em;color:#8d8d9c">IF THAT FAILS, IN ORDER</div>
+  <div style="margin-top:6px">
+    <sc-for list="{{ planRest }}" as="p" hint-placeholder-count="4">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:16px"><span>{{ p.n }} · {{ p.short }}</span><span style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:14px;color:#8d8d9c">{{ p.dist }}</span></div>
+    </sc-for>
+  </div>
+  <div style="flex:1"></div>
+  <p style="margin:24px 0 0;font-size:13px;line-height:1.5;color:#6f6f7e">Ordered by cost, then distance. Places and opening hours come from Akatsuki; your exact position is never shown.</p>
+</div>
+</sc-if>
+
+<!-- ═══ INCIDENT ═══ -->
+<sc-if value="{{ isIncident }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Incident" style="flex:1;overflow:auto;padding:20px 22px 20px;display:flex;flex-direction:column;background:#000;color:#fff">
+  <sc-if value="{{ offline }}" hint-placeholder-val="{{ false }}">
+    <div style="border:2px solid {{ acc }};border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;color:{{ acc }};font-weight:700;font-size:15px;margin-bottom:18px">
+      <svg width="20" height="16" viewBox="0 0 20 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 5c4.5-4 11.5-4 16 0M5 9c3-2.5 7-2.5 10 0M8 13l2 2 2-2"/><path d="M3 15 17 1"/></svg>
+      <span style="flex:1">OFFLINE · {{ offlineNote }}</span>
+      <span style="font-weight:400;color:#fff">{{ battery }}%</span>
+    </div>
+  </sc-if>
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <span style="font-size:14px;font-weight:700;letter-spacing:.22em;color:{{ acc }}">EARTHQUAKE · 地震</span>
+    <span style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:14px">{{ incStep }} / 7</span>
+  </div>
+  <div style="display:flex;gap:4px;margin-top:14px">
+    <sc-for list="{{ incSegs }}" as="s" hint-placeholder-count="7"><div onClick="{{ s.go }}" style="flex:1;height:6px;background:{{ s.bg }};cursor:pointer"></div></sc-for>
+  </div>
+
+  <!-- 4a -->
+  <sc-if value="{{ incIsHurt }}" hint-placeholder-val="{{ true }}">
+    <h1 style="margin:34px 0 0;font-size:44px;line-height:1.05;font-weight:700;letter-spacing:-.02em">Are you hurt?</h1>
+    <div style="margin-top:10px;font-size:22px;color:{{ acc }}">怪我をしていますか？</div>
+    <div onClick="{{ call119 }}" style="margin-top:28px;border-radius:16px;background:#d7271c;padding:22px 22px;display:flex;align-items:center;justify-content:space-between;cursor:pointer">
+      <div><div style="font-size:24px;font-weight:700">Yes — call 119</div><div style="margin-top:4px;font-size:15px">救急・消防 Ambulance / fire</div></div>
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M5 3h4l2 5-3 2a11 11 0 0 0 6 6l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 5a2 2 0 0 1 2-2z"/></svg>
+    </div>
+    <div style="margin-top:14px;border-radius:16px;border:2px solid #fff;padding:20px 22px;display:flex;align-items:center;justify-content:space-between;cursor:pointer">
+      <div><div style="font-size:22px;font-weight:700">Danger / crime — 110</div><div style="margin-top:4px;font-size:15px;color:#cfcfcf">警察 Police</div></div>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M5 3h4l2 5-3 2a11 11 0 0 0 6 6l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 5a2 2 0 0 1 2-2z"/></svg>
+    </div>
+    <div onClick="{{ incNext }}" style="margin-top:14px;border-radius:16px;background:{{ acc }};color:{{ accInk }};padding:22px 22px;display:flex;align-items:center;justify-content:space-between;cursor:pointer">
+      <div><div style="font-size:24px;font-weight:700">No, I'm OK</div><div style="margin-top:4px;font-size:15px">Next: make it safe</div></div>
+      <span style="font-size:26px;font-weight:700">›</span>
+    </div>
+    <div style="margin-top:22px;border:1px solid rgba(255,255,255,.3);border-radius:14px;padding:16px 18px">
+      <div style="font-size:12px;font-weight:700;letter-spacing:.16em;color:{{ acc }}">SAY ON THE PHONE</div>
+      <div style="margin-top:8px;font-size:20px">救急です。住所は[住所]です。</div>
+      <div style="margin-top:6px;font-size:14px;color:#bdbdbd;line-height:1.4">Kyūkyū desu. Jūsho wa [address] desu. — "Ambulance. My address is …"</div>
+    </div>
+    <sc-if value="{{ calling }}" hint-placeholder-val="{{ false }}"><div style="margin-top:14px;font-size:14px;color:#d7271c;text-align:center">Dialing 119 … (prototype: no call placed)</div></sc-if>
+  </sc-if>
+
+  <!-- generic checklist steps 2,5,6,7 -->
+  <sc-if value="{{ incIsList }}" hint-placeholder-val="{{ false }}">
+    <h1 style="margin:30px 0 0;font-size:44px;line-height:1.05;font-weight:700;letter-spacing:-.02em">{{ incTitle }}</h1>
+    <div style="margin-top:8px;font-size:17px;color:#bdbdbd">{{ incSub }}</div>
+    <sc-if value="{{ incChecklist }}" hint-placeholder-val="{{ true }}">
+      <div style="margin-top:20px;display:flex;flex-direction:column;gap:12px">
+        <sc-for list="{{ incItems }}" as="it" hint-placeholder-count="4">
+          <div onClick="{{ it.toggle }}" style="border:2px solid {{ it.border }};background:{{ it.bg }};border-radius:16px;padding:18px 18px;display:flex;align-items:center;gap:16px;cursor:pointer">
+            <div style="width:30px;height:30px;border-radius:50%;border:2px solid {{ it.ring }};background:{{ it.ringBg }};display:flex;align-items:center;justify-content:center;flex:none"><sc-if value="{{ it.done }}" hint-placeholder-val="{{ false }}"><svg width="14" height="11" viewBox="0 0 14 11" fill="none" stroke="#111" stroke-width="2.5"><path d="M1 5.5 5 9.5 13 1.5"/></svg></sc-if></div>
+            <div><div style="font-size:21px;font-weight:700;line-height:1.2">{{ it.t }}</div><div style="margin-top:3px;font-size:15px;color:{{ acc }}">{{ it.jp }}</div></div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{ incOneStep }}" hint-placeholder-val="{{ false }}">
+      <div style="margin-top:22px;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:13px;color:#bdbdbd">{{ incItemN }} of {{ incItemTotal }}</div>
+      <div style="margin-top:14px;border:2px solid {{ acc }};border-radius:20px;padding:28px 22px;min-height:230px;display:flex;flex-direction:column;justify-content:center">
+        <div style="font-size:34px;font-weight:700;line-height:1.1;text-wrap:pretty">{{ incItemT }}</div>
+        <div style="margin-top:12px;font-size:20px;color:{{ acc }}">{{ incItemJp }}</div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:10px">
+        <div onClick="{{ incItemDone }}" style="flex:1;height:60px;border-radius:14px;background:{{ acc }};color:{{ accInk }};display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;cursor:pointer">Done ›</div>
+        <div onClick="{{ incItemSkip }}" style="padding:0 20px;height:60px;border-radius:14px;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;cursor:pointer">Can't</div>
+      </div>
+    </sc-if>
+    <div style="margin-top:18px;border:1px solid rgba(255,255,255,.3);border-radius:14px;padding:16px 18px">
+      <div style="font-size:12px;font-weight:700;letter-spacing:.16em;color:{{ acc }}">{{ incNoteH }}</div>
+      <div style="margin-top:8px;font-size:16px;line-height:1.45">{{ incNoteB }}</div>
+    </div>
+  </sc-if>
+
+  <!-- 4c check in -->
+  <sc-if value="{{ incIsCheckin }}" hint-placeholder-val="{{ false }}">
+    <h1 style="margin:30px 0 0;font-size:40px;line-height:1.05;font-weight:700;letter-spacing:-.02em">Tell people you're OK</h1>
+    <div style="margin-top:8px;font-size:20px;color:{{ acc }}">無事を知らせる</div>
+    <div style="margin-top:20px;border:2px solid #fff;border-radius:16px;padding:16px 18px">
+      <div style="font-size:12px;font-weight:700;letter-spacing:.16em;color:{{ acc }}">PRE-WRITTEN · SMS, works without data</div>
+      <div style="margin-top:10px;font-size:17px;line-height:1.4">I'm safe. At [Home], building OK. Battery {{ battery }}% — next check-in 20:00.</div>
+      <div style="margin-top:6px;font-size:15px;color:#bdbdbd;line-height:1.4">無事です。[自宅]にいます。建物は大丈夫。次の連絡は20:00。</div>
+      <div onClick="{{ sendAll }}" style="margin-top:14px;height:54px;border-radius:12px;background:{{ sendBg }};color:{{ sendInk }};display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;cursor:pointer">{{ sendLabel }}</div>
+    </div>
+    <div style="margin-top:18px;font-size:12px;font-weight:700;letter-spacing:.16em;color:#bdbdbd">TAP WHEN YOU'VE REACHED THEM</div>
+    <div style="margin-top:8px">
+      <sc-for list="{{ contacts }}" as="c" hint-placeholder-count="5">
+        <div onClick="{{ c.toggle }}" style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.18);cursor:pointer">
+          <div style="width:26px;height:26px;border-radius:50%;border:2px solid {{ c.ring }};background:{{ c.ringBg }};flex:none"></div>
+          <div style="flex:1"><div style="font-size:18px;font-weight:700">{{ c.name }}</div><div style="font-size:13px;color:#bdbdbd">{{ c.sub }}</div></div>
+          <span style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:13px;color:{{ c.stC }}">{{ c.st }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="margin-top:16px;border:1px solid rgba(255,255,255,.3);border-radius:14px;padding:14px 18px">
+      <div style="font-size:12px;font-weight:700;letter-spacing:.16em;color:{{ acc }}">IF LINES ARE JAMMED · 171</div>
+      <div style="margin-top:6px;font-size:15px;line-height:1.45">Disaster message dial: call 171, press 1, record 30 s against your home number. Family dials 171 → 2 to hear it.</div>
+    </div>
+  </sc-if>
+
+  <!-- 4d stay or evacuate -->
+  <sc-if value="{{ incIsEvac }}" hint-placeholder-val="{{ false }}">
+    <h1 style="margin:26px 0 0;font-size:42px;line-height:1.05;font-weight:700;letter-spacing:-.02em">Stay or evacuate?</h1>
+    <div style="margin-top:18px;border:1px solid rgba(255,255,255,.3);border-radius:14px;padding:14px 18px">
+      <div style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:12px;font-weight:700;letter-spacing:.1em;color:#bdbdbd">{{ evacSrc }}</div>
+      <div style="margin-top:6px;font-size:19px">Tsunami 津波: <b>no warning</b></div>
+      <div style="margin-top:4px;font-size:19px">Aftershocks 余震: <b>likely</b></div>
+    </div>
+    <div style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div style="border:2px solid #d7271c;border-radius:14px;padding:14px 16px"><div style="font-size:15px;font-weight:700;color:#ff6b61">LEAVE if any</div><div style="margin-top:8px;font-size:16px;line-height:1.5">Gas smell<br>Fire or smoke<br>Building leaning or cracked through<br>Tsunami warning</div></div>
+      <div style="border:2px solid #777;border-radius:14px;padding:14px 16px"><div style="font-size:15px;font-weight:700;color:#cfcfcf">STAY if all</div><div style="margin-top:8px;font-size:16px;line-height:1.5">Building stands<br>Door opens<br>No gas, no fire<br>You have water</div></div>
+    </div>
+    <div style="margin-top:14px;flex:none;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,.2)">
+      <div style="position:relative;height:120px;background-color:#111;background-image:linear-gradient(rgba(255,255,255,.08) 10px,transparent 10px),linear-gradient(90deg,rgba(255,255,255,.08) 10px,transparent 10px);background-size:100% 46px,120px 100%;background-position:0 38px,-20px 0">
+        <div style="position:absolute;left:36px;top:84px;width:166px;height:4px;background:{{ acc }}"></div>
+        <div style="position:absolute;left:198px;top:24px;width:4px;height:64px;background:{{ acc }}"></div>
+        <div style="position:absolute;left:198px;top:24px;width:124px;height:4px;background:{{ acc }}"></div>
+        <div style="position:absolute;left:28px;top:78px;width:16px;height:16px;border-radius:50%;background:#fff"></div>
+        <div style="position:absolute;left:312px;top:14px;width:24px;height:24px;background:{{ acc }}"></div>
+        <div style="position:absolute;left:12px;bottom:8px;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:10px;color:#777">[ cached map tile ]</div>
+      </div>
+      <div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center">
+        <div><div style="font-size:18px;font-weight:700">[School name] 指定避難所</div><div style="font-size:13px;color:#bdbdbd">Designated shelter · walking only</div></div>
+        <div style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:15px;text-align:right;line-height:1.3">650 m<br>9 min</div>
+      </div>
+    </div>
+    <div onClick="{{ incNext }}" style="margin-top:16px;height:64px;border-radius:16px;background:{{ acc }};color:{{ accInk }};display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;cursor:pointer">Evacuate — start route</div>
+  </sc-if>
+
+  <div style="flex:1"></div>
+  <sc-if value="{{ incFooter }}" hint-placeholder-val="{{ false }}">
+    <div style="margin-top:20px;display:flex;gap:10px">
+      <div onClick="{{ incHelp }}" style="flex:1;height:60px;border-radius:14px;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;cursor:pointer">{{ incBtnA }}</div>
+      <div onClick="{{ incNext }}" style="flex:1;height:60px;border-radius:14px;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;cursor:pointer">Skip</div>
+      <div onClick="{{ incDoneGo }}" style="flex:1;height:60px;border-radius:14px;background:{{ doneBg }};color:{{ doneInk }};border:2px solid {{ doneBg }};display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:700;cursor:pointer">{{ incDoneLabel }}</div>
+    </div>
+  </sc-if>
+  <div style="margin-top:16px;display:flex;justify-content:space-between;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:12px;color:#9a9a9a"><span>{{ incFootL }}</span><span>{{ incFootR }}</span></div>
+</div>
+</sc-if>
+
+<!-- ═══ READINESS ═══ -->
+<sc-if value="{{ isReadiness }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Readiness" style="flex:1;overflow:auto;padding:26px 22px 20px">
+  <div style="font-size:13px;letter-spacing:.2em;color:#8d8d9c">READINESS</div>
+  <div style="margin-top:22px;display:flex;align-items:center;gap:20px">
+    <div style="position:relative;width:104px;height:104px;flex:none">
+      <svg width="104" height="104" viewBox="0 0 104 104" style="transform:rotate(-90deg)"><circle cx="52" cy="52" r="46" fill="none" stroke="#24252e" stroke-width="8"/><circle cx="52" cy="52" r="46" fill="none" stroke="#4a5bd8" stroke-width="8" stroke-linecap="round" stroke-dasharray="{{ ringDash }}"/></svg>
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:34px">{{ readyScore }}</div>
+    </div>
+    <div><div style="font-size:24px">{{ gapsHead }}</div><div style="margin-top:4px;font-size:14px;color:#8d8d9c">{{ gapsSub }}</div></div>
+  </div>
+  <div style="margin-top:22px;display:flex;flex-direction:column;gap:10px">
+    <sc-for list="{{ gapList }}" as="g" hint-placeholder-count="3">
+      <div style="border:1px solid rgba(230,169,74,.45);border-radius:14px;background:#13141a;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div><div style="font-size:17px">{{ g.t }}</div><div style="margin-top:3px;font-size:13px;color:#8d8d9c">{{ g.sub }}</div></div>
+        <div onClick="{{ g.fix }}" style="font-size:16px;color:#e6a94a;cursor:pointer;white-space:nowrap">{{ g.cta }}</div>
+      </div>
+    </sc-for>
+  </div>
+  <div style="margin-top:26px;font-size:12px;letter-spacing:.16em;color:#8d8d9c">INVENTORY</div>
+  <div style="margin-top:4px">
+    <sc-for list="{{ inventory }}" as="r" hint-placeholder-count="5">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 0;border-bottom:1px solid rgba(255,255,255,.08);font-size:16px"><span>{{ r.t }}</span><span style="color:{{ r.c }}">{{ r.v }}</span></div>
+    </sc-for>
+  </div>
+</div>
+</sc-if>
+
+<!-- ═══ AFTER-ACTION ═══ -->
+<sc-if value="{{ isAfterAction }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="After-Action" style="flex:1;overflow:auto;padding:26px 22px 20px;display:flex;flex-direction:column">
+  <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px;letter-spacing:.2em;color:#8d8d9c"><span>AFTER-ACTION</span><span style="font-family:'SF Mono',Menlo,Consolas,monospace;letter-spacing:0;color:#a9b2f2">0:38 / 1:00</span></div>
+  <h1 style="margin:18px 0 0;font-size:28px;font-weight:400">Sharehouse party</h1>
+  <div style="margin-top:22px;font-size:12px;letter-spacing:.16em;color:#8d8d9c">1 · WHAT HAPPENED</div>
+  <div style="margin-top:8px;border:1px solid rgba(255,255,255,.09);border-radius:14px;background:#13141a;padding:14px 16px;font-size:17px;line-height:1.45;min-height:90px">Paid ~¥10,000 for 4 bottles. Blackout. Friend unconscious until 5am. Cleaning fee charged.</div>
+  <div style="margin-top:22px;font-size:12px;letter-spacing:.16em;color:#8d8d9c">2 · LAST DECISION POINT</div>
+  <div style="margin-top:4px;font-size:14px;color:#8d8d9c">Where it could still have been stopped.</div>
+  <div style="margin-top:10px;border-left:2px solid #24252e;margin-left:10px">
+    <sc-for list="{{ aaPoints }}" as="p" hint-placeholder-count="3">
+      <div onClick="{{ p.pick }}" style="display:flex;align-items:center;gap:16px;padding:12px 0;margin-left:-10px;cursor:pointer">
+        <div style="width:18px;height:18px;border-radius:50%;border:2px solid {{ p.ring }};background:{{ p.bg }};flex:none"></div>
+        <div><div style="font-size:17px">{{ p.t }}</div><sc-if value="{{ p.sel }}" hint-placeholder-val="{{ false }}"><div style="font-size:13px;color:#a9b2f2">Selected</div></sc-if></div>
+      </div>
+    </sc-for>
+  </div>
+  <div style="margin-top:22px;font-size:12px;letter-spacing:.16em;color:#8d8d9c">3 · ONE NEW RULE</div>
+  <div style="margin-top:8px;border:1px solid #4a5bd8;border-radius:14px;background:#13141a;padding:16px;font-size:17px">{{ aaRule }}</div>
+  <div style="margin-top:14px;border:1px solid rgba(74,91,216,.5);border-radius:14px;background:#0f1120;padding:14px 16px">
+    <div style="font-size:12px;letter-spacing:.16em;color:#a9b2f2">BECOMES A PREDICTIVE CHECK</div>
+    <div style="margin-top:8px;font-size:16px;line-height:1.45">{{ aaFires }}</div>
+  </div>
+  <div style="flex:1"></div>
+  <div onClick="{{ aaSave }}" style="margin-top:24px;height:54px;border-radius:14px;background:#4a5bd8;color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;cursor:pointer">Save rule and close</div>
+</div>
+</sc-if>
+
+<!-- ═══ NIGHT OUT ═══ -->
+<sc-if value="{{ isNightOut }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Night Out" style="flex:1;overflow:auto;padding:26px 22px 20px;display:flex;flex-direction:column">
+
+  <sc-if value="{{ noIdle }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;justify-content:space-between;font-size:13px;letter-spacing:.2em;color:#8d8d9c"><span>NIGHT OUT</span><span style="font-family:'SF Mono',Menlo,Consolas,monospace;letter-spacing:0">Wed 17:05</span></div>
+    <h1 style="margin:22px 0 0;font-size:30px;font-weight:400;letter-spacing:-.01em">Nothing tonight.</h1>
+    <p style="margin:10px 0 0;font-size:16px;line-height:1.5;color:#8d8d9c;text-wrap:pretty">Next detected: [Event] at [Venue], Thu 19:00. I'll ask about limits before the first drink.</p>
+    <div style="margin-top:26px;font-size:12px;letter-spacing:.16em;color:#8d8d9c">LAST 3 NIGHTS</div>
+    <div style="margin-top:4px">
+      <sc-for list="{{ noHistory }}" as="h" hint-placeholder-count="3">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 0;border-bottom:1px solid rgba(255,255,255,.08)"><div><div style="font-size:16px">{{ h.t }}</div><div style="margin-top:2px;font-size:13px;color:#8d8d9c">{{ h.sub }}</div></div><span style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:14px;color:{{ h.c }}">{{ h.v }}</span></div>
+      </sc-for>
+    </div>
+    <div style="margin-top:22px;border:1px solid rgba(255,255,255,.09);border-radius:14px;background:#13141a;padding:14px 16px">
+      <div style="font-size:12px;letter-spacing:.16em;color:#8d8d9c">YOUR PATTERN</div>
+      <div style="margin-top:8px;font-size:15px;line-height:1.5;color:#dcdbe3">Bad nights share two things: a group set the pace, and no limit was decided first. Deciding first has worked every time.</div>
+    </div>
+    <div style="flex:1"></div>
+    <div onClick="{{ noStart }}" style="margin-top:24px;height:54px;border-radius:14px;border:1px solid rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;font-size:17px;cursor:pointer">Start a night out now</div>
+  </sc-if>
+
+  <sc-if value="{{ noPre }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;justify-content:space-between;font-size:13px;letter-spacing:.2em;color:#8d8d9c"><span>NIGHT OUT · BEFORE</span><span style="font-family:'SF Mono',Menlo,Consolas,monospace;letter-spacing:0">19:02</span></div>
+    <h1 style="margin:22px 0 0;font-size:28px;line-height:1.2;font-weight:400;letter-spacing:-.01em;text-wrap:pretty">Set your limits now, before the first drink.</h1>
+    <p style="margin:10px 0 0;font-size:15px;color:#8d8d9c">Detected: [Event] at [Venue] · izakaya · calendar 19:00</p>
+    <div style="margin-top:20px;border:1px solid rgba(255,255,255,.09);border-radius:16px;background:#13141a;padding:4px 18px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 0;border-bottom:1px solid rgba(255,255,255,.08)">
+        <span style="font-size:17px">Drinks</span>
+        <div style="display:flex;align-items:center;gap:14px">
+          <div onClick="{{ noLimitDown }}" style="width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer">−</div>
+          <span style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:24px;min-width:24px;text-align:center">{{ noLimit }}</span>
+          <div onClick="{{ noLimitUp }}" style="width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer">+</div>
+        </div>
+      </div>
+      <div onClick="{{ noSpendCycle }}" style="display:flex;justify-content:space-between;align-items:center;padding:18px 0;border-bottom:1px solid rgba(255,255,255,.08);cursor:pointer"><span style="font-size:17px">Spend limit</span><span style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:24px">{{ noSpendFmt }}</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 0;border-bottom:1px solid rgba(255,255,255,.08)"><div><div style="font-size:17px">Leave by</div><div style="margin-top:2px;font-size:13px;color:#8d8d9c">Last train 00:02 − 12 min walk − 10 min buffer</div></div><span style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:24px;color:#a9b2f2">{{ noLeaveBy }}</span></div>
+      <div style="padding:16px 0 18px">
+        <div style="font-size:17px">Getting home</div>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <sc-for list="{{ noModes }}" as="m" hint-placeholder-count="3"><div onClick="{{ m.pick }}" style="flex:1;height:46px;border-radius:12px;border:1px solid {{ m.border }};background:{{ m.bg }};display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer">{{ m.t }}</div></sc-for>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:14px;border:1px solid rgba(255,255,255,.09);border-radius:14px;padding:14px 16px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;letter-spacing:.16em;color:#8d8d9c"><span>WHY THIS MATTERS</span><span style="font-family:'SF Mono',Menlo,Consolas,monospace;letter-spacing:0">from your log</span></div>
+      <div style="margin-top:8px;font-size:15px;line-height:1.5;color:#dcdbe3">2 of 2 bad nights: group event, someone else set the pace, no limit decided. The night you decided "2 beers" first went fine.</div>
+    </div>
+    <div style="flex:1"></div>
+    <div onClick="{{ noLock }}" style="margin-top:24px;height:54px;border-radius:14px;background:#4a5bd8;color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;cursor:pointer">Lock in limits</div>
+    <div onClick="{{ noToIdle }}" style="margin-top:14px;text-align:center;font-size:15px;color:#a9b2f2;cursor:pointer">Not a drinking night</div>
+  </sc-if>
+
+  <sc-if value="{{ noLive }}" hint-placeholder-val="{{ false }}">
+    <sc-if value="{{ noCounters }}" hint-placeholder-val="{{ true }}">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <div style="border:1px solid {{ drinksBorder }};border-radius:12px;padding:12px 12px"><div style="font-size:12px;color:#8d8d9c">Drinks</div><div style="margin-top:4px;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:22px;color:{{ drinksC }}">{{ noDrinks }} / {{ noLimit }}</div></div>
+        <div style="border:1px solid rgba(255,255,255,.09);border-radius:12px;padding:12px 12px"><div style="font-size:12px;color:#8d8d9c">Spent</div><div style="margin-top:4px;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:22px">{{ noSpentFmt }}</div></div>
+        <div style="border:1px solid #4a5bd8;border-radius:12px;padding:12px 12px"><div style="font-size:12px;color:#8d8d9c">Last train</div><div style="margin-top:4px;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:22px;color:#a9b2f2">44 min</div></div>
+      </div>
+      <div style="margin-top:12px;font-size:13px;color:#8d8d9c">Walk to [Station] 12 min · leave by {{ noLeaveBy }} · now 23:18</div>
+    </sc-if>
+    <sc-if value="{{ noTimer }}" hint-placeholder-val="{{ false }}">
+      <div style="border:1px solid #4a5bd8;border-radius:16px;padding:18px 20px;text-align:center">
+        <div style="font-size:12px;letter-spacing:.16em;color:#a9b2f2">LEAVE IN</div>
+        <div style="margin-top:4px;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:64px;line-height:1;letter-spacing:-.03em">44:00</div>
+        <div style="margin-top:8px;font-size:13px;color:#8d8d9c">leave by {{ noLeaveBy }} · walk 12 min · last train 00:02</div>
+        <div style="margin-top:14px;display:flex;justify-content:center;gap:24px;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:15px"><span style="color:{{ drinksC }}">{{ noDrinks }} / {{ noLimit }} drinks</span><span>{{ noSpentFmt }}</span></div>
+      </div>
+    </sc-if>
+    <div style="margin-top:18px;border:1px solid rgba(255,255,255,.09);border-radius:18px;background:#13141a;padding:22px 20px">
+      <div style="font-size:12px;letter-spacing:.16em;color:{{ noStateC }}">{{ noStateH }}</div>
+      <h2 style="margin:16px 0 0;font-size:30px;font-weight:400;letter-spacing:-.01em">{{ noStateT }}</h2>
+      <p style="margin:14px 0 0;font-size:16px;line-height:1.5;color:#8d8d9c;text-wrap:pretty">{{ noStateB }}</p>
+      <div onClick="{{ noGoHome }}" style="margin-top:20px;height:56px;border-radius:14px;background:#4a5bd8;color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;cursor:pointer">Go home now</div>
+      <div onClick="{{ noStopStay }}" style="margin-top:10px;height:52px;border-radius:14px;border:1px solid rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:17px;cursor:pointer">{{ noStopLabel }}</div>
+      <div onClick="{{ noOneMore }}" style="margin-top:18px;text-align:center;font-size:16px;color:#b3b3bf;cursor:pointer">One more (logged)</div>
+    </div>
+    <div style="margin-top:14px;border:1px solid rgba(230,169,74,.4);border-radius:16px;padding:14px 16px">
+      <div style="font-size:16px;line-height:1.4">Someone's ordering another round. Is this your wish or theirs?</div>
+      <div style="margin-top:12px;display:flex;gap:10px">
+        <div onClick="{{ roundMine }}" style="flex:1;height:46px;border-radius:12px;border:1px solid {{ mineBorder }};display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer">Mine</div>
+        <div onClick="{{ roundTheirs }}" style="flex:1.6;height:46px;border-radius:12px;border:1px solid {{ theirsBorder }};background:{{ theirsBg }};display:flex;align-items:center;justify-content:center;font-size:15px;cursor:pointer">Theirs — I'll pass</div>
+      </div>
+    </div>
+    <div style="flex:1"></div>
+    <div style="margin-top:20px;display:flex;gap:10px">
+      <div onClick="{{ noPlusOne }}" style="flex:1;height:52px;border-radius:14px;border:1px solid rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer">+1 drink</div>
+      <div onClick="{{ noToDrunk }}" style="flex:1.6;height:52px;border-radius:14px;border:1px solid #d8544a;color:#ff8a7e;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer">Someone's very drunk</div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ noDrunk }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;letter-spacing:.2em;color:#e6a94a">SOMEONE IS VERY DRUNK</span><span onClick="{{ noToLive }}" style="font-size:13px;color:#8d8d9c;cursor:pointer">‹ Back</span></div>
+    <h1 style="margin:14px 0 0;font-size:34px;line-height:1.1;font-weight:700;color:#fff;letter-spacing:-.02em">Any of these? Call 119 now.</h1>
+    <div style="margin-top:18px;display:flex;flex-direction:column;gap:10px">
+      <div style="border:2px solid #d7271c;border-radius:14px;padding:14px 18px"><div style="font-size:19px;font-weight:700;color:#fff">Can't be woken</div><div style="font-size:14px;color:#f0a9a2">呼びかけに反応しない</div></div>
+      <div style="border:2px solid #d7271c;border-radius:14px;padding:14px 18px"><div style="font-size:19px;font-weight:700;color:#fff">Vomiting while drowsy</div><div style="font-size:14px;color:#f0a9a2">意識がもうろうとして嘔吐</div></div>
+      <div style="border:2px solid #d7271c;border-radius:14px;padding:14px 18px"><div style="font-size:19px;font-weight:700;color:#fff">Slow or irregular breathing</div><div style="font-size:14px;color:#f0a9a2">呼吸が遅い・不規則</div></div>
+      <div style="border:2px solid #d7271c;border-radius:14px;padding:14px 18px"><div style="font-size:19px;font-weight:700;color:#fff">Cold, pale or bluish skin</div><div style="font-size:14px;color:#f0a9a2">体が冷たい・唇が青い</div></div>
+    </div>
+    <div onClick="{{ call119 }}" style="margin-top:14px;border-radius:14px;background:#d7271c;color:#fff;padding:16px;text-align:center;cursor:pointer"><div style="font-size:26px;font-weight:700">Call 119</div><div style="margin-top:2px;font-size:16px">急性アルコール中毒の疑いがあります</div></div>
+    <div style="margin-top:14px;border:1px solid rgba(255,255,255,.2);border-radius:14px;padding:14px 18px">
+      <div style="font-size:12px;font-weight:700;letter-spacing:.16em;color:#e6a94a">NONE OF THESE — STILL</div>
+      <div style="margin-top:8px;font-size:16px;line-height:1.55;color:#fff">On their side, recovery position. Never on their back.<br>Never leave them alone.<br>No more alcohol.<br>Stay until they respond normally.</div>
+    </div>
+    <div style="flex:1"></div>
+    <div style="margin-top:16px;text-align:center;font-size:14px;color:#8d8d9c">Check again every 10 minutes — any sign above, call.</div>
+  </sc-if>
+
+  <sc-if value="{{ noAfter }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;justify-content:space-between;font-size:13px;letter-spacing:.2em;color:#8d8d9c"><span>NIGHT OUT · AFTER</span><span style="font-family:'SF Mono',Menlo,Consolas,monospace;letter-spacing:0">Thu 09:10</span></div>
+    <h1 style="margin:22px 0 0;font-size:30px;font-weight:400;letter-spacing:-.01em">Recover slowly.</h1>
+    <div style="margin-top:18px;border:1px solid rgba(255,255,255,.09);border-radius:16px;background:#13141a;padding:18px 18px">
+      <div style="font-size:12px;letter-spacing:.16em;color:#a9b2f2">RECOVERY</div>
+      <div style="margin-top:12px;display:flex;flex-direction:column;gap:12px;font-size:16px;line-height:1.45">
+        <div style="display:flex;gap:14px"><span style="color:#8d8d9c;font-family:'SF Mono',Menlo,Consolas,monospace">1</span><span>OS-1 (経口補水液) in small sips over time. Don't gulp — gulping is what made you vomit last time.</span></div>
+        <div style="display:flex;gap:14px"><span style="color:#8d8d9c;font-family:'SF Mono',Menlo,Consolas,monospace">2</span><span>Rest. No more alcohol today.</span></div>
+        <div style="display:flex;gap:14px"><span style="color:#8d8d9c;font-family:'SF Mono',Menlo,Consolas,monospace">3</span><span>See a doctor if you can't keep fluids down, there's blood in vomit, or you feel confused.</span></div>
+      </div>
+    </div>
+    <div style="margin-top:22px;font-size:12px;letter-spacing:.16em;color:#8d8d9c">ACCOUNTABILITY</div>
+    <div style="margin-top:4px">
+      <sc-for list="{{ accItems }}" as="a" hint-placeholder-count="3">
+        <div onClick="{{ a.toggle }}" style="display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.08);cursor:pointer">
+          <div style="width:24px;height:24px;border-radius:6px;border:2px solid {{ a.ring }};background:{{ a.bg }};display:flex;align-items:center;justify-content:center"><sc-if value="{{ a.on }}" hint-placeholder-val="{{ false }}"><svg width="12" height="10" viewBox="0 0 14 11" fill="none" stroke="#fff" stroke-width="2.5"><path d="M1 5.5 5 9.5 13 1.5"/></svg></sc-if></div>
+          <span style="font-size:17px">{{ a.t }}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="flex:1"></div>
+    <div style="margin-top:22px;border:1px solid rgba(74,91,216,.5);border-radius:16px;background:#0f1120;padding:16px">
+      <div style="font-size:12px;letter-spacing:.16em;color:#a9b2f2">AFTER-ACTION, PRE-FILLED</div>
+      <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+        <div><div style="font-size:12px;color:#8d8d9c">Home at</div><div style="margin-top:4px;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:19px">23:58</div></div>
+        <div><div style="font-size:12px;color:#8d8d9c">Spent</div><div style="margin-top:4px;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:19px">{{ noSpentFmt }}</div></div>
+        <div><div style="font-size:12px;color:#8d8d9c">Drinks</div><div style="margin-top:4px;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:19px">{{ noDrinks }} / {{ noLimit }}</div></div>
+      </div>
+      <div onClick="{{ noLogIt }}" style="margin-top:14px;height:50px;border-radius:12px;background:#4a5bd8;color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer">Log it — under a minute</div>
+    </div>
+  </sc-if>
+</div>
+</sc-if>
+
+<!-- ═══ LOG ═══ -->
+<sc-if value="{{ isLog }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Log" style="flex:1;overflow:auto;padding:26px 22px 20px">
+  <div style="display:flex;justify-content:space-between;font-size:13px;letter-spacing:.2em;color:#8d8d9c"><span>LOG</span><span style="font-family:'SF Mono',Menlo,Consolas,monospace;letter-spacing:0">30 days</span></div>
+  <div style="margin-top:22px;font-size:12px;letter-spacing:.16em;color:#8d8d9c">TIMELINE</div>
+  <div style="margin-top:6px">
+    <sc-for list="{{ logs }}" as="e" hint-placeholder-count="4">
+      <div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.08)">
+        <div style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:12px;color:#8d8d9c;width:58px;flex:none;line-height:1.5;padding-top:2px">{{ e.when }}</div>
+        <div style="flex:1"><div style="font-size:16px">{{ e.t }}</div><div style="margin-top:2px;font-size:13px;color:#8d8d9c;line-height:1.4">{{ e.sub }}</div></div>
+        <div style="font-size:13px;color:{{ e.c }};white-space:nowrap;padding-top:2px">{{ e.v }}</div>
+      </div>
+    </sc-for>
+  </div>
+  <div style="margin-top:28px;font-size:12px;letter-spacing:.16em;color:#8d8d9c">RULES LEARNED · {{ rulesN }}</div>
+  <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px">
+    <sc-for list="{{ rules }}" as="r" hint-placeholder-count="3">
+      <div style="border:1px solid rgba(74,91,216,.4);border-radius:14px;background:#0f1120;padding:14px 16px">
+        <div style="font-size:16px;line-height:1.35">{{ r.t }}</div>
+        <div style="margin-top:8px;display:flex;justify-content:space-between;gap:10px;font-size:13px;color:#a9b2f2"><span>Fires: {{ r.fires }}</span><span style="font-family:'SF Mono',Menlo,Consolas,monospace;color:#8d8d9c;white-space:nowrap">{{ r.src }}</span></div>
+      </div>
+    </sc-for>
+  </div>
+  <div onClick="{{ goAfterAction }}" style="margin-top:18px;text-align:center;font-size:15px;color:#a9b2f2;cursor:pointer">Review the sharehouse party ›</div>
+</div>
+</sc-if>
+
+<!-- ═══ SETTINGS ═══ -->
+<sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+<div data-screen-label="Settings" style="flex:1;overflow:auto;padding:26px 22px 20px">
+  <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;letter-spacing:.2em;color:#8d8d9c">SETTINGS</span><span onClick="{{ goWatch }}" style="font-size:15px;color:#a9b2f2;cursor:pointer">Done</span></div>
+  <sc-for list="{{ settings }}" as="sec" hint-placeholder-count="5">
+    <div style="margin-top:26px;font-size:12px;letter-spacing:.16em;color:#8d8d9c">{{ sec.h }}</div>
+    <div style="margin-top:4px">
+      <sc-for list="{{ sec.rows }}" as="r" hint-placeholder-count="3">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.08)"><div><div style="font-size:16px">{{ r.t }}</div><div style="font-size:13px;color:#8d8d9c;margin-top:2px">{{ r.sub }}</div></div><span style="font-size:14px;color:{{ r.c }};white-space:nowrap">{{ r.v }}</span></div>
+      </sc-for>
+    </div>
+  </sc-for>
+  <p style="margin:22px 0 0;font-size:13px;line-height:1.5;color:#6f6f7e">Exact position never leaves the phone. Akatsuki receives area-level cells only, and nothing while you're offline.</p>
+</div>
+</sc-if>
+
+<!-- ═══ BOTTOM NAV ═══ -->
+<sc-if value="{{ showNav }}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;border-top:1px solid rgba(255,255,255,.08);padding:10px 4px 6px;background:#0b0b10">
+  <div onClick="{{ goWatch }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:{{ tabC1 }}"><svg width="22" height="18" viewBox="0 0 22 18" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1 9s3.6-7 10-7 10 7 10 7-3.6 7-10 7S1 9 1 9z"/><circle cx="11" cy="9" r="3"/></svg>Watch</div>
+  <div onClick="{{ goReadiness }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:{{ tabC2 }}"><svg width="20" height="18" viewBox="0 0 20 18" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="5" width="18" height="12" rx="2"/><path d="M6 5V2h8v3"/></svg>Readiness</div>
+  <div onClick="{{ goNightOut }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:{{ tabC3 }}"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M15 11A7 7 0 0 1 7 3a7 7 0 1 0 8 8z"/></svg>Night Out</div>
+  <div onClick="{{ goLog }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:{{ tabC4 }}"><svg width="16" height="18" viewBox="0 0 16 18" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="1" width="14" height="16" rx="1.5"/><path d="M4 6h8M4 9.5h8M4 13h5"/></svg>Log</div>
+  <div onClick="{{ goIncident }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:#f08a4b"><svg width="20" height="18" viewBox="0 0 20 18" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 1.5 19 16.5H1z"/><path d="M10 7v4M10 13.5v.5"/></svg>Incident</div>
+</div>
+</sc-if>
+
+</div>
+</x-import>
+
+<!-- ═══ JUMP MENU ═══ -->
+<div style="width:250px;flex:none;color:#ecebf1">
+  <div style="font-size:11px;letter-spacing:.2em;color:#8d8d9c">SCREENS</div>
+  <div style="margin-top:10px;display:flex;flex-direction:column;gap:2px">
+    <sc-for list="{{ jump }}" as="j" hint-placeholder-count="18">
+      <div onClick="{{ j.go }}" style="padding:7px 10px;border-radius:8px;font-size:13px;cursor:pointer;background:{{ j.bg }};color:{{ j.c }}">{{ j.l }}</div>
+    </sc-for>
+  </div>
+  <div onClick="{{ resetAll }}" style="margin-top:14px;padding:7px 10px;font-size:12px;color:#8d8d9c;cursor:pointer;border:1px solid rgba(255,255,255,.1);border-radius:8px;text-align:center">Reset state</div>
+  <div style="margin-top:22px;font-size:11px;letter-spacing:.2em;color:#8d8d9c">TWEAKS</div>
+  <p style="margin:8px 0 0;font-size:12px;line-height:1.6;color:#8d8d9c">Offline + battery · Incident layout (checklist / one step) · Watch home (radar / list / card) · Night Out live (counters / timer) · Urgency colour (amber / red). Set them in the Tweaks panel.</p>
+  <div style="margin-top:14px;font-family:'SF Mono',Menlo,Consolas,monospace;font-size:11px;color:#5f5f6e;line-height:1.6">now: {{ tweakSummary }}</div>
+</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;offline&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Scenario&quot;},&quot;battery&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:38,&quot;min&quot;:3,&quot;max&quot;:100,&quot;step&quot;:1,&quot;unit&quot;:&quot;%&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Scenario&quot;},&quot;incidentLayout&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;checklist&quot;,&quot;options&quot;:[&quot;checklist&quot;,&quot;step&quot;],&quot;tsType&quot;:&quot;'checklist' | 'step'&quot;,&quot;section&quot;:&quot;Riffs&quot;},&quot;watchHome&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;radar&quot;,&quot;options&quot;:[&quot;radar&quot;,&quot;list&quot;,&quot;card&quot;],&quot;tsType&quot;:&quot;'radar' | 'list' | 'card'&quot;,&quot;section&quot;:&quot;Riffs&quot;},&quot;nightOutLive&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;counters&quot;,&quot;options&quot;:[&quot;counters&quot;,&quot;timer&quot;],&quot;tsType&quot;:&quot;'counters' | 'timer'&quot;,&quot;section&quot;:&quot;Riffs&quot;},&quot;urgency&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;amber&quot;,&quot;options&quot;:[&quot;amber&quot;,&quot;red&quot;],&quot;tsType&quot;:&quot;'amber' | 'red'&quot;,&quot;section&quot;:&quot;Riffs&quot;}}">
+const OB = [
+  {jp:'はじめに', title:'A quiet watcher for a loud country.', body:'Disaster Mgmt only speaks when something needs you: a departure check, a rain band over your commute, an earthquake. Setup takes about two minutes.', points:[{t:'Predicts, with evidence and a confidence number',r:'watch'},{t:'Walks you through an incident, fully offline',r:'7 steps'},{t:'Learns one rule from every bad night',r:'log'}], why:'Nothing is shared until you say so on the last step.', cta:'Begin', skip:'I live here already — short version', iconBg:'#4a5bd8'},
+  {jp:'位置情報', title:'Location & geofences', body:'Two geofences — [Home] and [Office] — trigger the departure check when you cross them. Your exact position stays on the phone.', points:[{t:'Departure check when leaving a place',r:'enables'},{t:'Nearest shelter route, cached',r:'enables'},{t:'Street-level position shared',r:'never'}], why:'Android will ask for "Allow all the time" — geofences need it to fire while the app is closed.', cta:'Allow location', skip:'Not now — manual checks only', iconBg:'#1f6b4a'},
+  {jp:'カレンダー', title:'Calendar', body:'Read-only. Events named like "飲み会", "party" or placed at an izakaya start the Night Out pre-commit before the first drink. First meeting time feeds the commute alarm.', points:[{t:'Night Out pre-commit, timed right',r:'enables'},{t:'Commute alarm knows when you must arrive',r:'enables'},{t:'Event titles leave the phone',r:'never'}], why:'You can exclude calendars (work, shared) in Settings.', cta:'Connect calendar', skip:'Skip — I will start nights manually', iconBg:'#4a5bd8'},
+  {jp:'タグ', title:'Bluetooth tags — optional', body:'A tag on the wallet turns "Did I bring it?" into a fact. Without tags the departure check is a manual tap, which also works.', points:[{t:'Wallet',r:'tag · optional'},{t:'Keys',r:'tag · optional'},{t:'Pass (in wallet)',r:'inferred'}], why:'Any AirTag / Tile / SmartTag works; range checks happen only at the geofence moment.', cta:'Pair a tag', skip:'No tags — manual tap', iconBg:'#2b2c36'},
+  {jp:'緊急連絡先', title:'Emergency contacts', body:'Five people, in the order you would want them told. In an earthquake, step 3 sends them one pre-written SMS at a tap.', points:[{t:'[Partner]',r:'1'},{t:'[Mum]',r:'2'},{t:'[Colleague]',r:'3'},{t:'[Landlord] — needed for step 7',r:'missing'},{t:'[Embassy]',r:'5'}], why:'Contacts are stored on the phone only. Add the landlord later from Readiness.', cta:'Add contacts', skip:'Later', iconBg:'#8a3a2a'},
+  {jp:'住所', title:'Home & office addresses', body:'Needed to say your address to 119 in Japanese, to compute the walk to the last train, and to pick your designated shelter (指定避難所).', points:[{t:'[Home] · 〒___-____ · ward, chōme, banchi',r:'set'},{t:'[Office] · 〒___-____',r:'set'},{t:'Nearest station · [Station] · 12 min walk',r:'auto'}], why:'Addresses are read aloud in the incident flow: 「住所は[住所]です」.', cta:'Save addresses', skip:'Later', iconBg:'#2b2c36'},
+  {jp:'同意', title:'Akatsuki — what is shared', body:'Akatsuki provides weather, JMA quake feeds, train status, places and opening hours. In return it receives only this:', points:[{t:'Area-level cell (≈1 km), not position',r:'shared'},{t:'Your train line and stations',r:'shared'},{t:'Calendar, contacts, tag IDs, drink log',r:'never'},{t:'Anything while offline',r:'never'}], why:'You can revoke this any time in Settings → Privacy. The incident flow works without it.', cta:'Agree and finish', skip:'Decline — offline-only mode', iconBg:'#4a5bd8'}
+];
+const INC = [
+  {n:1,kind:'hurt'},
+  {n:2,kind:'list',title:'Make it safe',sub:'Tap each one as you do it.',items:[{t:'Shoes on',jp:'靴を履く — broken glass'},{t:'Gas off at the valve',jp:'ガスの元栓を閉める'},{t:'Open the door — your exit',jp:'ドアを開けて出口を確保'},{t:'No elevators',jp:'エレベーターは使わない'}],noteH:'IF IT SHAKES AGAIN · 余震',noteB:'Drop, cover your head, hold on. Then continue from here — your progress is saved.'},
+  {n:3,kind:'checkin'},
+  {n:4,kind:'evac'},
+  {n:5,kind:'list',title:'Water & supplies',sub:'Before the taps stop. 水と備蓄',items:[{t:'Fill the bathtub',jp:'浴槽に水をためる — if water still runs'},{t:'Go-bag by the door',jp:'非常持ち出し袋を玄関へ'},{t:'Phone on power bank',jp:'モバイルバッテリーで充電'},{t:'Knock on neighbours',jp:'隣人の安否確認'}],noteH:'YOUR GO-BAG · 14 ITEMS',noteB:'Water 2 L (expires in 18 days), radio, torch, cash, copies of 在留カード and passport.'},
+  {n:6,kind:'list',title:'Get information',sub:'Official sources only. 情報',items:[{t:'NHK radio or app',jp:'NHKラジオ — 693 kHz Tokyo'},{t:'Ward emergency alerts',jp:'区の防災メール'},{t:'Check train status',jp:'運行情報 — expect all lines stopped'}],noteH:'RUMOURS · デマ',noteB:'Trust JMA, NHK and your ward only. Screenshots on social media after a quake are often old or fake.'},
+  {n:7,kind:'list',title:'Report & record',sub:'Before you move anything. 記録と連絡',items:[{t:'Photograph damage',jp:'被害を撮影 — insurance needs it'},{t:'Tell your landlord',jp:'大家に連絡 — contact missing: add in Readiness'},{t:'Tell your employer',jp:'会社に連絡'},{t:'Embassy check-in',jp:'大使館の安否登録'}],noteH:'WHEN YOU ARE DONE',noteB:'The app returns to Watch and writes an after-action entry you can finish later.'}
+];
+const PLANS = [
+  {n:1,title:'Walk back to [Office] and get the wallet.',short:'Walk back to [Office]',dist:'400 m',walk:'5 min',cost:'¥0',check:'Building open until 22:00 · security desk staffed',go:'Start walking'},
+  {n:2,title:'Set up Mobile IC on the phone, top up by card.',short:'Mobile IC on phone (top up by card)',dist:'0 m',walk:'0 min',cost:'¥0',check:'Card saved in wallet app · battery 22%, enough',go:'Open wallet app'},
+  {n:3,title:'Smartphone ATM withdrawal at [Konbini].',short:'Smartphone ATM withdrawal',dist:'250 m',walk:'3 min',cost:'¥110',check:'Open 24 h · app-based withdrawal enabled',go:'Start walking'},
+  {n:4,title:'Ask the 交番 police box for a fare loan.',short:'交番 Police box — fare loan',dist:'450 m',walk:'6 min',cost:'¥0',check:'公衆接遇弁償費 · up to ¥1,000, repay later',go:'Start walking'},
+  {n:5,title:'Call [Colleague] — still in the office.',short:'Call [Colleague] — still in office',dist:'—',walk:'—',cost:'¥0',check:'Last seen online 18:31',go:'Call'}
+];
+const DEFAULT_LOGS = [
+  {when:'Wed 18:34',t:'Stranded — no pass, no cash',sub:'Resolved in 6 min · walked back to [Office]',v:'resolved',c:'#7fd6a4'},
+  {when:'Tue 06:40',t:'Commute alarm',sub:'Rain band · line delayed 14 min · you were on time',v:'accurate',c:'#7fd6a4'},
+  {when:'Sat 02:10',t:'Sharehouse party',sub:'¥10,000 · blackout · after-action pending',v:'review',c:'#e6a94a'},
+  {when:'Fri 21:15',t:'Departure check',sub:'Leaving [Office] · all with me',v:'ok',c:'#8d8d9c'}
+];
+const DEFAULT_RULES = [
+  {t:'Leave 20 min earlier on heavy-rain mornings',fires:'大雨注意報 over your commute window',src:'3 delays'},
+  {t:'Decide drinks before the first one',fires:'izakaya event in calendar',src:'2 nights'}
+];
+const BASE = {
+  screen:'onboarding', obStep:0, watchPred:true, lockMissing:{}, strandedIdx:0, walking:false,
+  incStep:1, incDone:{}, incItem:0, calling:false, msgSent:false, reached:{},
+  gaps:{water:false,landlord:false,cash:false}, aaPoint:0,
+  no:{limit:2,spend:3000,mode:'train',drinks:0,phase:'idle',round:null},
+  acc:{clean:true,costs:false,apology:false},
+  logs:DEFAULT_LOGS, rules:DEFAULT_RULES
+};
+class Component extends DCLogic {
+  state = JSON.parse(JSON.stringify(BASE));
+  go(screen, extra) { this.setState({screen, ...(extra||{})}); }
+  renderVals() {
+    const s = this.state, p = this.props;
+    const offline = !!(p.offline ?? false), battery = p.battery ?? 38;
+    const urgency = p.urgency ?? 'amber';
+    const acc = urgency === 'red' ? '#e5352a' : '#f5a623', accInk = urgency === 'red' ? '#fff' : '#111';
+    const watchHome = p.watchHome ?? 'radar', incLayout = p.incidentLayout ?? 'checklist', noLiveMode = p.nightOutLive ?? 'counters';
+    const sc = s.screen;
+    const is = k => sc === k;
+    const set = (o) => this.setState(o);
+    const goWatch = () => this.go('watch'), goReadiness = () => this.go('readiness'), goNightOut = () => this.go('nightout'), goLog = () => this.go('log'), goIncident = () => this.go('incident'), goSettings = () => this.go('settings'), goAfterAction = () => this.go('afteraction');
+    // onboarding
+    const ob = OB[s.obStep];
+    const obNext = () => s.obStep < 6 ? set({obStep: s.obStep + 1}) : this.go('watch');
+    // lock
+    const lockDefs = [{k:'wallet',name:'Wallet',on:'Tag · with you',onC:'#7fd6a4',onBg:'#0d1a14',onB:'#2f7a56'},{k:'pass',name:'Pass',on:'In wallet',onC:'#8d8d9c',onBg:'#1a1b23',onB:'rgba(255,255,255,.1)'},{k:'phone',name:'Phone',on:'22% · charge',onC:'#e6a94a',onBg:'#1c1508',onB:'#8a6a2a'}];
+    const lockItems = lockDefs.map(d => { const miss = !!s.lockMissing[d.k]; return { name:d.name, status: miss ? 'Missing' : d.on, fg: miss ? '#ff8a7e' : d.onC, bg: miss ? '#1f0e0c' : d.onBg, border: miss ? '#d8544a' : d.onB, toggle: () => set({lockMissing:{...s.lockMissing,[d.k]:!miss}}) }; });
+    // stranded
+    const plan = PLANS[Math.min(s.strandedIdx, PLANS.length - 1)];
+    const planRest = PLANS.slice(s.strandedIdx + 1).map(x => ({n:x.n, short:x.short, dist:x.dist === '—' ? 'call' : x.dist}));
+    // incident
+    const cur = INC[s.incStep - 1];
+    const doneArr = s.incDone[s.incStep] || [];
+    const incItems = (cur.items || []).map((it, i) => { const d = !!doneArr[i]; return { t:it.t, jp:it.jp, done:d, border: d ? acc : '#555', bg: d ? (urgency === 'red' ? '#1f0a08' : '#1c1300') : '#000', ring: d ? acc : '#777', ringBg: d ? acc : 'transparent', toggle: () => { const a = [...doneArr]; a[i] = !d; set({incDone:{...s.incDone,[s.incStep]:a}}); } }; });
+    const incNext = () => s.incStep < 7 ? set({incStep:s.incStep + 1, incItem:0, calling:false}) : this.go('watch', {incStep:1, incDone:{}, incItem:0});
+    const incGoStep = n => () => set({incStep:n, incItem:0});
+    const itemsTotal = (cur.items || []).length, itemIdx = Math.min(s.incItem, Math.max(itemsTotal - 1, 0)), curItem = (cur.items || [])[itemIdx] || {};
+    const incItemDone = () => { const a = [...doneArr]; a[itemIdx] = true; if (itemIdx + 1 >= itemsTotal) { set({incDone:{...s.incDone,[s.incStep]:a}}); incNext(); } else set({incDone:{...s.incDone,[s.incStep]:a}, incItem:itemIdx + 1}); };
+    const incItemSkip = () => itemIdx + 1 >= itemsTotal ? incNext() : set({incItem:itemIdx + 1});
+    const contactsDef = [{k:'partner',name:'[Partner]',sub:'SMS · 1st'},{k:'mum',name:'[Mum]',sub:'SMS · overseas, +44'},{k:'colleague',name:'[Colleague]',sub:'SMS · also in Tokyo'},{k:'landlord',name:'[Landlord]',sub:'No number saved — add in Readiness',missing:true},{k:'embassy',name:'[Embassy]',sub:'Registered · web check-in'}];
+    const contacts = contactsDef.map(c => { const r = !!s.reached[c.k]; const st = r ? 'reached' : c.missing ? 'missing' : s.msgSent ? 'sent' : '—'; return { name:c.name, sub:c.sub, ring: r ? '#7fd6a4' : c.missing ? '#d7271c' : '#777', ringBg: r ? '#7fd6a4' : 'transparent', st, stC: r ? '#7fd6a4' : c.missing ? '#ff6b61' : '#bdbdbd', toggle: () => set({reached:{...s.reached,[c.k]:!r}}) }; });
+    const allDone = doneArr.filter(Boolean).length === itemsTotal && itemsTotal > 0;
+    // readiness
+    const gapDefs = [{k:'water',t:'Water expires in 18 days',sub:'Go-bag · 2 L · +9 pts',cta:'Replace',pts:9},{k:'landlord',t:'Landlord contact missing',sub:'Needed for step 7 · +8 pts',cta:'Add',pts:8},{k:'cash',t:'Emergency cash below target',sub:'[¥ held] of [¥ target] · +6 pts',cta:'Top up',pts:6}];
+    const open = gapDefs.filter(g => !s.gaps[g.k]);
+    const readyScore = 68 + gapDefs.filter(g => s.gaps[g.k]).reduce((a, g) => a + g.pts, 0);
+    const gapList = open.map(g => ({t:g.t, sub:g.sub, cta:g.cta, fix: () => set({gaps:{...s.gaps,[g.k]:true}})}));
+    const circ = 2 * Math.PI * 46;
+    const inventory = [{t:'Go-bag · 14 items',v: s.gaps.water ? 'Fresh' : '1 expiring',c: s.gaps.water ? '#7fd6a4' : '#8d8d9c'},{t:'Documents · 在留カード, passport copies',v:'Offline',c:'#7fd6a4'},{t:'Emergency contacts · 5',v: s.gaps.landlord ? 'Complete' : '1 missing',c: s.gaps.landlord ? '#7fd6a4' : '#e6a94a'},{t:'Embassy registration',v:'Done',c:'#7fd6a4'},{t:'Shelter 避難所 · route cached',v:'Saved',c:'#7fd6a4'}];
+    // after-action
+    const aaDefs = ['Before the first drink — no limit set','Bottles bought — friend\'s idea, not mine','Last bottle opened neat'];
+    const aaRules = ['Set a spending and time limit before any party','Never split bottles — order by the glass','Stop at the first neat pour'];
+    const aaFiresArr = ['When a party or drinking event is detected → open the Night Out pre-commit card before the first drink.','When a bottle order is detected (spend jump > ¥5,000) → ask "yours or theirs?" immediately.','When a "+1 drink" comes within 15 min of the previous → show the last-sober-decision card.'];
+    const aaPoints = aaDefs.map((t, i) => ({t, sel: s.aaPoint === i, ring: s.aaPoint === i ? '#4a5bd8' : '#3a3b47', bg: s.aaPoint === i ? '#4a5bd8' : '#0b0b10', pick: () => set({aaPoint:i})}));
+    const aaSave = () => { const r = {t:aaRules[s.aaPoint], fires:aaFiresArr[s.aaPoint].split('→')[0].replace('When ', '').trim(), src:'sharehouse'}; set({rules:[r, ...s.rules], logs:s.logs.map(l => l.t === 'Sharehouse party' ? {...l, sub:'¥10,000 · blackout · rule saved', v:'reviewed', c:'#7fd6a4'} : l)}); this.go('log'); };
+    // night out
+    const no = s.no, setNo = o => set({no:{...no, ...o}});
+    const limitReached = no.drinks >= no.limit;
+    const remaining = Math.max(no.limit - no.drinks, 0);
+    const spent = no.drinks * 1300;
+    const fmtY = n => '¥' + n.toLocaleString('en-US');
+    const leaveBy = no.mode === 'train' ? '23:40' : no.mode === 'taxi' ? '00:30' : '00:15';
+    const noModes = [{k:'train',t:'Last train'},{k:'taxi',t:'Taxi'},{k:'walk',t:'Walk'}].map(m => ({t:m.t, border: no.mode === m.k ? '#4a5bd8' : 'rgba(255,255,255,.14)', bg: no.mode === m.k ? '#161a3a' : 'transparent', pick: () => setNo({mode:m.k})}));
+    const noHistory = [{t:'Sharehouse party',sub:'Sat · group · no limit set',v:'¥10,000',c:'#ff8a7e'},{t:'Izakaya with team',sub:'Thu · limit 2 · home 23:58',v:'2 / 2',c:'#7fd6a4'},{t:'Birthday at [Bar]',sub:'Fri · limit 3 · taxi home',v:'4 / 3',c:'#e6a94a'}];
+    const accDefs = [{k:'clean',t:'Mess cleaned'},{k:'costs',t:'Costs settled fairly'},{k:'apology',t:'Apology given, if owed'}];
+    const accItems = accDefs.map(a => ({t:a.t, on:!!s.acc[a.k], ring: s.acc[a.k] ? '#4a5bd8' : '#3a3b47', bg: s.acc[a.k] ? '#4a5bd8' : 'transparent', toggle: () => set({acc:{...s.acc,[a.k]:!s.acc[a.k]}})}));
+    const noLogIt = () => { set({logs:[{when:'Thu 09:11',t:'Night out — [Venue]',sub:`${no.drinks} / ${no.limit} drinks · ${fmtY(spent)} · home 23:58`,v: no.drinks <= no.limit ? 'on plan' : 'over', c: no.drinks <= no.limit ? '#7fd6a4' : '#e6a94a'}, ...s.logs], no:{...no, phase:'idle', drinks:0, round:null}}); this.go('log'); };
+    // jump
+    const jumpDefs = [
+      ['0 · Onboarding', () => this.go('onboarding', {obStep:0}), sc === 'onboarding'],
+      ['1 · Watch — with a prediction', () => this.go('watch', {watchPred:true}), sc === 'watch' && s.watchPred],
+      ['1b · Watch — quiet state', () => this.go('watch', {watchPred:false}), sc === 'watch' && !s.watchPred],
+      ['2 · Departure check (lock screen)', () => this.go('lock'), sc === 'lock'],
+      ['3 · Stranded', () => this.go('stranded', {strandedIdx:0, walking:false}), sc === 'stranded'],
+      ['4a · Incident — are you hurt?', () => this.go('incident', {incStep:1}), sc === 'incident' && s.incStep === 1],
+      ['4b · Incident — make it safe', () => this.go('incident', {incStep:2, incItem:0}), sc === 'incident' && s.incStep === 2],
+      ['4c · Incident — check in', () => this.go('incident', {incStep:3}), sc === 'incident' && s.incStep === 3],
+      ['4d · Incident — stay or evacuate', () => this.go('incident', {incStep:4}), sc === 'incident' && s.incStep === 4],
+      ['4e · Incident — steps 5–7', () => this.go('incident', {incStep:5, incItem:0}), sc === 'incident' && s.incStep >= 5],
+      ['5 · Readiness', goReadiness, sc === 'readiness'],
+      ['6 · After-Action', goAfterAction, sc === 'afteraction'],
+      ['7 · Night Out — idle', () => { setNo({phase:'idle'}); this.go('nightout'); }, sc === 'nightout' && no.phase === 'idle'],
+      ['7a · Night Out — pre-commit', () => { setNo({phase:'pre'}); this.go('nightout'); }, sc === 'nightout' && no.phase === 'pre'],
+      ['7b · Night Out — last sober decision', () => { set({no:{...no, phase:'live', drinks:no.limit}, screen:'nightout'}); }, sc === 'nightout' && no.phase === 'live'],
+      ['7c · Night Out — someone is very drunk', () => { setNo({phase:'drunk'}); this.go('nightout'); }, sc === 'nightout' && no.phase === 'drunk'],
+      ['7d · Night Out — after', () => { set({no:{...no, phase:'after', drinks: no.drinks || 2}, screen:'nightout'}); }, sc === 'nightout' && no.phase === 'after'],
+      ['8 · Log', goLog, sc === 'log'],
+      ['9 · Settings', goSettings, sc === 'settings']
+    ];
+    const jump = jumpDefs.map(([l, go, on]) => ({l, go, bg: on ? '#2a2c3a' : 'transparent', c: on ? '#fff' : '#a3a3b0'}));
+    const settings = [
+      {h:'DATA SOURCES & LAST SYNC', rows:[{t:'Akatsuki',sub:'Weather · JMA quakes · trains · places',v: offline ? 'offline · 14:07' : 'synced 17:04',c: offline ? '#e6a94a' : '#7fd6a4'},{t:'Calendar',sub:'Personal only · work excluded',v:'connected',c:'#7fd6a4'},{t:'Bluetooth tags',sub:'Wallet · Keys',v:'2 paired',c:'#8d8d9c'}]},
+      {h:'PRIVACY · WHAT IS SHARED', rows:[{t:'Area cell to Akatsuki',sub:'≈1 km · not street position',v:'on',c:'#a9b2f2'},{t:'Train line & stations',sub:'For delay prediction',v:'on',c:'#a9b2f2'},{t:'Calendar, contacts, drink log',sub:'Phone only',v:'never',c:'#8d8d9c'}]},
+      {h:'ALERT THRESHOLDS', rows:[{t:'Commute alarm',sub:'Fire above this confidence',v:'≥ 60%',c:'#ecebf1'},{t:'Quake',sub:'Open incident flow at',v:'震度 5弱',c:'#ecebf1'},{t:'Night Out',sub:'Last-sober card at',v:'limit reached',c:'#ecebf1'}]},
+      {h:'OFFLINE CACHE', rows:[{t:'Incident steps 1–7',sub:'Bilingual · phone numbers · scripts',v:'cached',c:'#7fd6a4'},{t:'Shelter map · 2 km',sub:'Updated Oct 1',v:'38 MB',c:'#8d8d9c'},{t:'Documents',sub:'在留カード · passport · insurance',v:'3 files',c:'#8d8d9c'}]},
+      {h:'CONTACTS & ADDRESSES', rows:[{t:'Emergency contacts',sub:'[Partner] · [Mum] · [Colleague] · [Embassy]',v: s.gaps.landlord ? '5 of 5' : '4 of 5',c: s.gaps.landlord ? '#7fd6a4' : '#e6a94a'},{t:'[Home]',sub:'〒___-____ · geofence 150 m',v:'set',c:'#8d8d9c'},{t:'[Office]',sub:'〒___-____ · geofence 150 m',v:'set',c:'#8d8d9c'}]}
+    ];
+    const noStateH = limitReached ? 'LIMIT REACHED' : 'ON TRACK';
+    return {
+      bg: sc === 'incident' ? '#000' : '#0b0b10',
+      offline, battery, acc, accInk,
+      tweakSummary: `${offline ? 'offline' : 'online'} · ${battery}% · ${incLayout} · ${watchHome} · ${noLiveMode} · ${urgency}`,
+      isOnboarding: is('onboarding'), isWatch: is('watch'), isLock: is('lock'), isStranded: is('stranded'), isIncident: is('incident'), isReadiness: is('readiness'), isAfterAction: is('afteraction'), isNightOut: is('nightout'), isLog: is('log'), isSettings: is('settings'),
+      showNav: ['watch','readiness','nightout','log'].includes(sc),
+      tabC1: sc === 'watch' ? '#a9b2f2' : '#8d8d9c', tabC2: sc === 'readiness' ? '#a9b2f2' : '#8d8d9c', tabC3: sc === 'nightout' ? '#a9b2f2' : '#8d8d9c', tabC4: sc === 'log' ? '#a9b2f2' : '#8d8d9c',
+      goWatch, goReadiness, goNightOut, goLog, goIncident, goSettings, goAfterAction,
+      // onboarding
+      obN: s.obStep + 1, obJp: ob.jp, obTitle: ob.title, obBody: ob.body, obPoints: ob.points.map(x => ({...x, dot: x.r === 'never' || x.r === 'missing' ? '#d8544a' : x.r === 'shared' || x.r === 'enables' ? '#a9b2f2' : '#4a5bd8'})), obWhy: ob.why, obCta: ob.cta, obSkipLabel: ob.skip, obIconBg: ob.iconBg,
+      obSegs: OB.map((_, i) => ({bg: i <= s.obStep ? '#4a5bd8' : '#24252e'})), obNext, obSkip: obNext,
+      // watch
+      watchPred: s.watchPred, watchQuiet: !s.watchPred, watchClock: s.watchPred ? 'Wed 14 Oct · 17:05' : 'Thu 15 Oct · 12:40',
+      watchIsList: watchHome === 'list', watchNotList: watchHome !== 'list', watchIsRadar: watchHome === 'radar', watchIsCard: watchHome === 'card',
+      dismissPred: () => set({watchPred:false}), restorePred: () => set({watchPred:true}), readyScore,
+      // lock
+      lockItems, lockAllWithMe: goWatch, lockMissingGo: () => this.go('stranded', {strandedIdx:0, walking:false}),
+      // stranded
+      planN: plan.n, planTitle: plan.title, planDist: plan.dist, planWalk: plan.walk, planCost: plan.cost, planCheck: plan.check,
+      planGoLabel: s.walking ? 'Arrived — got it' : plan.go, planGoBg: s.walking ? '#2f7a56' : '#4a5bd8',
+      planGo: () => s.walking ? this.go('watch', {walking:false, strandedIdx:0}) : set({walking:true}),
+      planFail: () => set({strandedIdx: Math.min(s.strandedIdx + 1, PLANS.length - 1), walking:false}), planRest,
+      // incident
+      incStep: s.incStep, incSegs: INC.map((x, i) => ({bg: i < s.incStep ? acc : '#333', go: incGoStep(i + 1)})),
+      offlineNote: s.incStep === 4 ? 'cached map and status' : 'all 7 steps cached',
+      incIsHurt: cur.kind === 'hurt', incIsList: cur.kind === 'list', incIsCheckin: cur.kind === 'checkin', incIsEvac: cur.kind === 'evac',
+      incTitle: cur.title, incSub: cur.sub, incNoteH: cur.noteH, incNoteB: cur.noteB, incItems,
+      incChecklist: incLayout === 'checklist', incOneStep: incLayout === 'step', incItemN: itemIdx + 1, incItemTotal: itemsTotal, incItemT: curItem.t, incItemJp: curItem.jp, incItemDone, incItemSkip,
+      incNext, incHelp: () => set({incStep:1}), incBtnA: cur.kind === 'evac' ? 'Stay' : 'Help',
+      incFooter: cur.kind === 'list' || cur.kind === 'checkin' || cur.kind === 'evac',
+      incDoneGo: incNext, incDoneLabel: s.incStep === 7 ? 'Close' : cur.kind === 'evac' ? 'Help' : 'Done',
+      doneBg: cur.kind === 'evac' ? '#000' : (allDone || cur.kind === 'checkin') ? acc : acc, doneInk: cur.kind === 'evac' ? '#fff' : accInk,
+      call119: () => set({calling:true}), calling: s.calling,
+      sendAll: () => set({msgSent:true}), sendLabel: s.msgSent ? 'Sent to 4 · 1 missing' : 'Send to all 5 (SMS)', sendBg: s.msgSent ? '#1c1300' : acc, sendInk: s.msgSent ? acc : accInk, contacts,
+      evacSrc: offline ? 'LAST KNOWN · cached 14:07 (12 min ago)' : 'LIVE · JMA 14:19 · updated 20 s ago',
+      incFootL: battery < 40 ? 'Low-power mode' : 'Battery ' + battery + '%', incFootR: offline ? 'Offline · progress cached' : 'Online · progress saved',
+      // readiness
+      ringDash: `${(readyScore / 100) * circ} ${circ}`, gapsHead: open.length ? `${open.length} gap${open.length > 1 ? 's' : ''} to close` : 'No gaps', gapsSub: open.length ? `Closing ${open.length === 3 ? 'all three' : open.length === 2 ? 'both' : 'it'} brings you to ${68 + 23}.` : 'Water, contacts and cash are all in order.', gapList, inventory,
+      // after-action
+      aaPoints, aaRule: aaRules[s.aaPoint], aaFires: aaFiresArr[s.aaPoint], aaSave,
+      // night out
+      noIdle: no.phase === 'idle', noPre: no.phase === 'pre', noLive: no.phase === 'live', noDrunk: no.phase === 'drunk', noAfter: no.phase === 'after',
+      noCounters: noLiveMode === 'counters', noTimer: noLiveMode === 'timer',
+      noHistory, noStart: () => setNo({phase:'pre'}), noToIdle: () => setNo({phase:'idle'}),
+      noLimit: no.limit, noLimitUp: () => setNo({limit:Math.min(no.limit + 1, 9)}), noLimitDown: () => setNo({limit:Math.max(no.limit - 1, 0)}),
+      noSpendFmt: fmtY(no.spend), noSpendCycle: () => setNo({spend: no.spend === 3000 ? 5000 : no.spend === 5000 ? 2000 : 3000}), noLeaveBy: leaveBy, noModes,
+      noLock: () => setNo({phase:'live', drinks:0, round:null}),
+      noDrinks: no.drinks, noSpentFmt: fmtY(spent), drinksBorder: limitReached ? '#8a6a2a' : 'rgba(255,255,255,.09)', drinksC: limitReached ? '#e6a94a' : '#ecebf1',
+      noStateH, noStateC: limitReached ? '#e6a94a' : '#7fd6a4', noStateT: limitReached ? 'Last sober decision.' : `${remaining} drink${remaining === 1 ? '' : 's'} left.`,
+      noStateB: limitReached ? `You set ${no.limit} drinks before the first one. This is the moment you asked to be caught at.` : `You set ${no.limit} before the first one. Nothing to decide yet — I'll say so when you get there.`,
+      noStopLabel: limitReached ? 'Stop drinking, stay' : 'Stop here, stay',
+      noGoHome: () => setNo({phase:'after'}), noStopStay: () => setNo({round:'stop'}), noOneMore: () => setNo({drinks:no.drinks + 1}), noPlusOne: () => setNo({drinks:no.drinks + 1}),
+      roundMine: () => setNo({round:'mine'}), roundTheirs: () => setNo({round:'theirs'}), mineBorder: no.round === 'mine' ? '#a9b2f2' : 'rgba(255,255,255,.14)', theirsBorder: no.round === 'theirs' ? '#e6a94a' : 'rgba(255,255,255,.14)', theirsBg: no.round === 'theirs' ? '#1c1508' : 'transparent',
+      noToDrunk: () => setNo({phase:'drunk'}), noToLive: () => setNo({phase:'live'}),
+      accItems, noLogIt,
+      // log & settings
+      logs: s.logs, rules: s.rules, rulesN: s.rules.length, settings,
+      jump, resetAll: () => this.setState(JSON.parse(JSON.stringify(BASE)))
+    };
+  }
+}
+</script>
+</body>
+</html>

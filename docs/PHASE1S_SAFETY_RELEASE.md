@@ -30,7 +30,7 @@ Run without installing any frontend framework or build tooling:
 node --test tests/phase1s.test.mjs
 ```
 
-Current result: **12 passed, 0 failed**. Checks cover shell installation, scoped deletion, path/cache isolation, preserved saved data, corruption quarantine, compatible import, rejected import and update notice behavior.
+Current result: **13 passed, 0 failed**. Checks cover shell installation, scoped deletion, path/cache isolation, preserved saved data, corruption quarantine, compatible import, rejected import and first-install/update notice behavior.
 
 There is also a real-browser script:
 
@@ -56,6 +56,7 @@ It uses optional `playwright` and Chromium; in an environment without a working 
 ## Operational notes
 
 - The SW cache revision (`v3`) **must be bumped** whenever a future release changes precached app shell files; that is a release checklist item, not an automatic source hash.
+- **One-time v2 to v3 upgrade:** the already-running v2 JavaScript cannot display the new update notice because it does not contain the listener yet. After the new service worker takes control, a manual page reload loads v3's new shell. Later v3+ worker upgrades can show the notice without forcibly reloading the current screen.
 - Updating is a user-initiated page reload, never an automatic forced navigation during an incident or unsaved form entry.
 - Existing app continues to label JMA/transport/Akatsuki feeds as **not connected**. The release is strictly an offline-cache and data-recovery safety change.
 - After approval and successful Pages deployment, re-run acceptance on the actual published URL, then update this document with the tested commit, date, device and result.

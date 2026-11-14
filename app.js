@@ -593,10 +593,12 @@
   render();
   // Browsers also treat loopback HTTP as a secure context for local smoke tests.
   if('serviceWorker' in navigator && (location.protocol==='https:' || ['localhost','127.0.0.1'].includes(location.hostname))){
-    const wasControlled=!!navigator.serviceWorker.controller;
+    let hasBeenControlled=!!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener('controllerchange',()=>{
+      const replacing=hasBeenControlled;
+      hasBeenControlled=!!navigator.serviceWorker.controller;
       offlineReady=true;
-      if(wasControlled)showUpdateNotice();
+      if(replacing)showUpdateNotice();
     });
     navigator.serviceWorker.register('./service-worker.js',{updateViaCache:'none'})
       .then(()=>navigator.serviceWorker.ready)

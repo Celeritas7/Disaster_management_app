@@ -89,7 +89,7 @@ function sampleRecord() {
     rules:[{title:'Keep the plan',trigger:'Before leaving',date:'14 Nov'}]};
 }
 
-function appHarness(initialRaw, {controlled = false} = {}) {
+function appHarness(initialRaw, {controlled = false, swEnabled = controlled} = {}) {
   const storage = new Map(initialRaw === undefined ? [] : [[KEY, initialRaw]]);
   const listeners = new Map();
   const downloads = [];
@@ -98,8 +98,8 @@ function appHarness(initialRaw, {controlled = false} = {}) {
   let allowErase = true;
   let reloads = 0;
   const workerListeners = new Map();
-  const serviceWorker = controlled ? {
-    controller: {},
+  const serviceWorker = swEnabled ? {
+    controller: controlled ? {} : null,
     ready: Promise.resolve(),
     addEventListener: (name,cb) => workerListeners.set(name,cb),
     register: async () => ({})
@@ -121,7 +121,7 @@ function appHarness(initialRaw, {controlled = false} = {}) {
   const context = {document,navigator,window:{addEventListener(){},scrollTo(){},location:{reload(){reloads++;}}},
     localStorage:{getItem:name=>storage.has(name)?storage.get(name):null,setItem:(name,value)=>storage.set(name,value),removeItem:name=>storage.delete(name)},
     URL:TestURL,Blob,Date,Intl,setTimeout:()=>1,clearTimeout:()=>{},
-    confirm:()=>allowErase,location:{protocol:controlled?'https:':'http:',hostname:controlled?'celeritas7.github.io':'localhost'}};
+    confirm:()=>allowErase,location:{protocol:swEnabled?'https:':'http:',hostname:swEnabled?'celeritas7.github.io':'localhost'}};
   vm.runInNewContext(APP_SOURCE,context,{filename:'app.js'});
   const click = (name, dataset = {}) => {
     const button = {dataset:{action:name,...dataset}};
@@ -132,7 +132,7 @@ function appHarness(initialRaw, {controlled = false} = {}) {
     const target = {id,files:[{size:raw.length,text:async()=>raw}],value:'selected'};
     await listeners.get('change')({target});
   };
-  return {storage,app,toast,downloads,click,importRecord,workspace,workerListeners,setConfirm(value){allowErase=value;},get reloads(){return reloads;}};
+  return {storage,app,toast,downloads,click,importRecord,workspace,workerListeners,serviceWorker,setConfirm(value){allowErase=value;},get reloads(){return reloads;}};
 }
 
 test('service worker install reloads all app-shell files from the network', async () => {
@@ -261,4 +261,14 @@ test('service worker update notice is inserted without rerendering an open form'
   assert.ok(app.workspace.inserted.includes('Reload to update'));
   app.click('reload-app');
   assert.equal(app.reloads,1);
+});
+
+test('first-time service worker install stays quiet but its next update prompts', () => {
+  const app=appHarness(JSON.stringify(sampleRecord()),{controlled:false,swEnabled:true});
+  const handler=app.workerListeners.get('controllerchange');
+  app.serviceWorker.controller={};
+  handler();
+  assert.equal(app.workspace.inserted,undefined);
+  handler();
+  assert.ok(app.workspace.inserted.includes('Reload to update'));
 });

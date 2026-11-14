@@ -1,10 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {join,dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import vm from 'node:vm';
 
-const SW_SOURCE = readFileSync(new URL('../dist/service-worker.js', import.meta.url), 'utf8');
-const APP_SOURCE = readFileSync(new URL('../dist/app.js', import.meta.url), 'utf8');
+// GitHub Pages serves the repo root; DMA_TEST_ROOT supports a local staging copy.
+const SOURCE_ROOT = process.env.DMA_TEST_ROOT || join(dirname(fileURLToPath(import.meta.url)), '..');
+const SW_SOURCE = readFileSync(join(SOURCE_ROOT, 'service-worker.js'), 'utf8');
+const APP_SOURCE = readFileSync(join(SOURCE_ROOT, 'app.js'), 'utf8');
 const SCOPE = 'https://celeritas7.github.io/Disaster_management_app/';
 const KEY = 'disaster-management:v1';
 

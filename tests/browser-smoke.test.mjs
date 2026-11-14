@@ -9,7 +9,8 @@ import {fileURLToPath} from 'node:url';
 let chromium;
 try { ({chromium}=createRequire(import.meta.url)('playwright')); }
 catch { /* Playwright is optional for this static, dependency-free web app. */ }
-const root = join(dirname(fileURLToPath(import.meta.url)), '../dist');
+// GitHub Pages serves the repo root; DMA_TEST_ROOT supports a local staging copy.
+const root = process.env.DMA_TEST_ROOT || join(dirname(fileURLToPath(import.meta.url)), '..');
 const prefix = '/Disaster_management_app/';
 const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'};
 const allowed = new Set(['index.html','app.js','service-worker.js','styles.css','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);

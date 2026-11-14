@@ -45,7 +45,7 @@ It uses optional `playwright` and Chromium; in an environment without a working 
 - [ ] Record the exact source commit and a snapshot of the working Pages build. On the current app, export a copy from Settings and keep that file before testing.
 - [ ] On a real browser, open the app, save a contact, readiness check, home location and incident/log note; reload and confirm all persist.
 - [ ] Put a second app's offline data in a different CacheStorage namespace on the **same origin**. Install the revised worker and verify that second app's cache remains intact.
-- [ ] Update from worker `v2` to `v3`, verify the notice appears without clearing an unsubmitted form, choose **Later**, and then choose **Reload to update** at a safe time.
+- [ ] Update from the existing worker `v2` to `v3` and verify a deliberate manual reload obtains fresh files (old v2 code has no notice listener). Then test `v3` to `v4`: verify the new notice appears without clearing an unsubmitted form, choose **Later**, and later **Reload to update** at a safe time.
 - [ ] Confirm the new `app.js` and `styles.css` actually load after updating, and that no old cached variant is indefinitely stuck. Confirm mobile responsive layout unchanged.
 - [ ] Disconnect the network after one complete load, cold-reopen the installed app, navigate Watch, Readiness, Incident, Settings and verify saved data/export while offline.
 - [ ] Import a valid v1 JSON backup and check values; attempt an invalid or version-999 backup and confirm the previous local records were not overwritten.

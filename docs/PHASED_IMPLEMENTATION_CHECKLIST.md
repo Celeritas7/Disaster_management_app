@@ -4,7 +4,7 @@
 **Requirement register:** [PHASE0_FEATURE_INVENTORY.md](PHASE0_FEATURE_INVENTORY.md) — each item has a stable `UX/OB/WA/DP/ST/IN/RD/NO/AA/LG/SE/CF` ID.  
 **Deployment policy:** Work on one reviewable branch/PR per bounded phase; do **not** push incomplete work directly to `main`. Verify that the existing published app remains usable before merging. The prototype is a design reference, not proof of a real feed or permission.
 
-Status notation: `[x]` audited/documented; `[ ]` planned, **not implemented by this Phase 0 work**. An `I` status in the feature register means code exists, not that device QA has passed.
+Status notation: `[x]` completed in the named work branch; `[ ]` pending. A checked Phase 1S item is **not yet on the deployed site** until its PR is merged and Pages deployment is verified. An `I` status in the feature register means code exists, not that device QA has passed.
 
 ## Phase 0 — Audit, inventory, risk register, release baseline
 
@@ -15,17 +15,19 @@ Status notation: `[x]` audited/documented; `[ ]` planned, **not implemented by t
 - [x] **P0-05** Record **190 independently checkable feature rows** in the linked register and assign initial delivery phases.
 - [x] **P0-06** Record blockers and hazards: origin-wide SW cache deletion, stale cached assets, local PII, state migration, fabricated live status, background API feasibility and emergency copy.
 - [x] **P0-07** Publish Phase 0 documentation on a separate branch/PR; change no runnable source and leave Pages deployment untouched.
-- [ ] **P0-08** Owner reviews audit and explicitly approves the first implementation phase / UI-fidelity priorities.
+- [x] **P0-08** Owner approved the next development phase (Phase 1S) on 2026-11-15 JST; UI-fidelity priorities remain for Phase 1A.
 
 **Exit gate:** Source tree/feature register traceable, reported risks understood, no JS/CSS/HTML/manifest/service-worker changes, `main` remains exactly the baseline unless the owner independently changes it.
 
 ## Phase 1S — Protect deployed app and stored records (prerequisite)
 
-- [ ] **P1S-01** Fix `CF-02` / RISK-01: constrain SW cache deletion to *this app's cache names*, never touch caches belonging to any other app on `celeritas7.github.io`.
-- [ ] **P1S-02** Fix `CF-03` / RISK-02: choose versioning/update strategy and test that users receive fresh `app.js` and `styles.css` after new deployment, online and following offline usage.
-- [ ] **P1S-03** Fix `CF-15` / RISK-04: add backward-compatible data migration and backup/recovery test harness before future schema modifications.
-- [ ] **P1S-04** Add automated checks: service worker only removes owned caches, preserves a simulated second app's cache, and does not corrupt existing readiness/contact/log data.
-- [ ] **P1S-05** Confirm user-facing data export before/after update, rollback behavior, and offline shell still works with no network.
+- [x] **P1S-01** Fix `CF-02` / RISK-01: constrain SW cache deletion to *this app's cache names*, never touch caches belonging to any other app on `celeritas7.github.io` (unit-verified in Phase 1S branch).
+- [ ] **P1S-02** Fix `CF-03` / RISK-02: revision `v3`, fresh shell precaching and in-place update prompt implemented and unit-tested; **real-browser online/offline upgrade acceptance pending**.
+- [x] **P1S-03** Fix `CF-15` / RISK-04: retain v1 storage schema, validate version/shape, preserve incompatible raw bytes, supply original-data export/import/reset recovery and test harness.
+- [x] **P1S-04** Add automated checks: service worker only removes owned caches, preserves a simulated second app's cache, and does not corrupt existing readiness/contact/log data (12 passing Node checks; separate CI Chromium test configured).
+- [ ] **P1S-05** Confirm user-facing data export before/after update, rollback behavior, and offline shell still works with no network in **real Chrome/mobile**, not only simulated Node tests.
+
+**Phase 1S implementation review:** [PHASE1S_SAFETY_RELEASE.md](PHASE1S_SAFETY_RELEASE.md) includes changed-file scope, tests, real-browser acceptance instructions and rollback. Work stays on a separate PR and is not deployed until accepted.
 
 **Exit gate:** Separate safety-only PR; test with multiple same-origin app cache namespaces. Release this before changes that would depend on updated offline assets. Do not add unverified alerts here.
 

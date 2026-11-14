@@ -4,6 +4,10 @@
   // No network or account is required. Entries remain in this browser's storage.
   const KEY = 'disaster-management:v1';
   const VERSION = 1;
+  // Keep the storage key stable across future schema revisions. Add one pure
+  // migration function for each old version before incrementing VERSION.
+  const MIGRATIONS = Object.freeze({});
+  let recoveryRaw = null;
   const CHECKS = [
     {id:'water', group:'Survival essentials', title:'Drinking water', note:'Store an appropriate emergency supply and check the expiry dates.', pts:12},
     {id:'food', group:'Survival essentials', title:'Shelf-stable food', note:'Food you can eat even if power and cooking are unavailable.', pts:10},
@@ -129,10 +133,33 @@
       .map(x=>({title:str(x.title,250),trigger:str(x.trigger,250),date:str(x.date,75)}));
     return d;
   }
+  function migrateRecord(raw) {
+    if(!raw || typeof raw!=='object' || Array.isArray(raw) || !Number.isInteger(raw.version) || raw.version<1 || raw.version>VERSION) return null;
+    const isObject=x=>x && typeof x==='object' && !Array.isArray(x);
+    let record=raw;
+    while(record.version<VERSION){
+      const step=MIGRATIONS[record.version];
+      if(typeof step!=='function')return null;
+      const next=step(record);
+      if(!next || next.version!==record.version+1)return null;
+      record=next;
+    }
+    // Quarantine incompatible/corrupt records instead of silently replacing them.
+    if(!isObject(record.profile) || !isObject(record.checks) || !isObject(record.incident)
+       || !isObject(record.departure) || !isObject(record.night)
+       || !Array.isArray(record.contacts) || !Array.isArray(record.logs) || !Array.isArray(record.rules))return null;
+    return record;
+  }
   function load() {
+    let saved;
+    try { saved=localStorage.getItem(KEY); }
+    catch { /* private or disabled storage */ return defaults(); }
+    if(saved===null)return defaults();
     try {
-      return normalize(JSON.parse(localStorage.getItem(KEY)));
-    } catch { /* private or disabled storage */ }
+      const compatible=migrateRecord(JSON.parse(saved));
+      if(compatible)return normalize(compatible);
+    } catch { /* unexpected or malformed JSON: keep the original bytes */ }
+    recoveryRaw=saved;
     return defaults();
   }
   let data = load();
@@ -140,19 +167,37 @@
   let offlineReady = false;
   let installPrompt = null;
   let toastTimer;
+  let workerUpdateReady = false;
   const app = document.getElementById('app');
   const readyCount = () => CHECKS.reduce((n,c) => n+(data.checks[c.id] ? c.pts : 0),0);
   const doneCount = () => CHECKS.filter(c => data.checks[c.id]).length;
   const when = () => new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Tokyo',day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date());
   const yen = n => '¥'+Number(n || 0).toLocaleString('en-JP');
   const item = (title, note, right = '') => `<li><span>${safe(title)}<br><small class="muted">${safe(note)}</small></span><span>${right}</span></li>`;
-  function save() { try { localStorage.setItem(KEY,JSON.stringify(data)); } catch { toast('Local storage is unavailable; your changes may not persist.'); } }
+  function save() {
+    if(recoveryRaw!==null)return false; // Never overwrite an unreadable backup.
+    try { localStorage.setItem(KEY,JSON.stringify(data));return true; }
+    catch { toast('Local storage is unavailable; your changes may not persist.');return false; }
+  }
   function update() { save(); render(); }
   function go(page) { data.page=page;update();window.scrollTo({top:0,behavior:'instant'}); }
   function toast(message) {
     const el=document.getElementById('toast');
     el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);
     toastTimer=setTimeout(()=>el.classList.remove('show'),3300);
+  }
+  function updateBanner() {
+    return `<section id="update-notice" class="info-band blue" role="status" style="margin-bottom:20px;display:block">
+      <strong>An app update is ready</strong>
+      <p style="margin:8px 0 12px">The new offline files are cached. Reload when it is safe to leave your current screen; any unsaved form text will be lost.</p>
+      <div class="form-actions">${action('reload-app','Reload to update','btn-primary')}${action('defer-update','Later','btn-outline')}</div>
+    </section>`;
+  }
+  function showUpdateNotice() {
+    workerUpdateReady=true;
+    // Insert without re-rendering: never wipe a half-written incident note.
+    const workspace=app.querySelector('.workspace');
+    if(workspace && !workspace.querySelector('#update-notice'))workspace.insertAdjacentHTML('afterbegin',updateBanner());
   }
   function action(name,label,klass='btn-outline',more='') { return `<button type="button" class="btn ${klass}" data-action="${name}" ${more}>${label}</button>`; }
   function link(url,label) {return `<a class="external-link" href="${url}" target="_blank" rel="noopener noreferrer">${label} ${icon('external','sm')}</a>`;}
@@ -185,12 +230,22 @@
       </aside>
       <div class="main">
         <header class="mobile-top"><div class="mobile-brand"><span class="brand-emblem">${icon('eye','sm')}</span>Disaster Management</div>${action('go',icon('alert','sm')+' Incident','btn-danger','data-page="incident"')}</header>
-        <main class="workspace" id="main-content">${content}</main>
+        <main class="workspace" id="main-content">${workerUpdateReady?updateBanner():''}${recoveryRaw!==null?recoveryBanner():''}${content}</main>
       </div>
       <nav class="bottom-nav" aria-label="Mobile navigation">
         ${[['watch','Watch','eye'],['readiness','Ready','shield'],['incident','Incident','alert'],['night','Night','moon'],['log','Log','log']].map(([p,l,i])=>`<button data-action="go" data-page="${p}" class="${section===p?'active':''} ${p==='incident'?'danger':''}" aria-current="${section===p?'page':'false'}">${icon(i)}<span>${l}</span></button>`).join('')}
       </nav>
     </div>`;
+  }
+  function recoveryBanner() {
+    return `<section class="info-band amber" role="alert" style="margin-bottom:20px;display:block">
+      <strong>Saved records need recovery</strong>
+      <p style="margin:8px 0 12px">This browser has data from an unknown or damaged app version. Its original contents have <strong>not</strong> been replaced. You can still use the emergency guide, but changes made here will not be saved until you restore a compatible backup or deliberately reset.</p>
+      <div class="form-actions">${action('export-raw','Download original records','btn-primary')}
+        <label class="btn btn-outline" for="import-recovery-json" style="cursor:pointer">Restore a compatible backup</label>
+        <input id="import-recovery-json" type="file" accept="application/json,.json" style="display:none" />
+        ${action('erase','Reset after backing up','btn-outline')}
+      </div></section>`;
   }
   function watch() {
     const score=readyCount(),next=CHECKS.find(c=>!data.checks[c.id]);
@@ -383,8 +438,20 @@
   }
   function field(id) {return document.getElementById(id);}
   function numericField(id,fallback=0) {const x=Number(field(id)?.value);return Number.isFinite(x)?Math.max(0,x):fallback;}
+  function downloadBackup(contents,filename) {
+    const blob=new Blob([contents],{type:'application/json'});
+    const url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download=filename;a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),500);
+    toast('Backup download started. Keep the file somewhere safe.');
+  }
   function dispatch(name,button) {
     const id=button.dataset.id,index=Number(button.dataset.index);
+    if(name==='reload-app')return window.location.reload();
+    if(name==='defer-update'){
+      workerUpdateReady=false;
+      document.getElementById('update-notice')?.remove();return;
+    }
     if(name==='go') return go(button.dataset.page);
     if(name==='sample') {data.scenario=!data.scenario;return update();}
     if(name==='toggle-check') {data.checks[id]=!data.checks[id];return update();}
@@ -477,14 +544,18 @@
       update();return toast('Contact saved locally.');
     }
     if(name==='remove-contact'){if(data.contacts[index]){data.contacts.splice(index,1);update();toast('Contact removed.');}return;}
-    if(name==='export'){
-      const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-      const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='disaster-management-backup.json';a.click();
-      setTimeout(()=>URL.revokeObjectURL(url),500);return toast('Backup download started.');
+    if(name==='export-raw' || (name==='export' && recoveryRaw!==null)) {
+      if(recoveryRaw===null)return toast('No unreadable records were found.');
+      return downloadBackup(recoveryRaw,'disaster-management-original-backup.json');
     }
+    if(name==='export')return downloadBackup(JSON.stringify(data,null,2),'disaster-management-backup.json');
     if(name==='erase'){
-      if(!confirm('Erase all Disaster Management records on this browser? This cannot be undone without a backup.'))return;
-      data=defaults();update();return toast('Local app records erased.');
+      const warning=recoveryRaw!==null
+        ? 'Erase the saved records that this app cannot currently read? Download the untouched backup first. This cannot be undone without that file.'
+        : 'Erase all Disaster Management records on this browser? This cannot be undone without a backup.';
+      if(!confirm(warning))return;
+      try {localStorage.removeItem(KEY);}catch {return toast('Could not remove the saved records. No data was erased.');}
+      recoveryRaw=null;data=defaults();update();return toast('Local app records erased.');
     }
     if(name==='tour-next'){
       if(data.tourStep<TOUR.length-1){data.tourStep++;return update();}
@@ -499,15 +570,18 @@
     event.preventDefault();dispatch(button.dataset.action,button);
   });
   document.addEventListener('change',async event=>{
-    if(event.target.id==='import-json'){
+    if(event.target.id==='import-json'||event.target.id==='import-recovery-json'){
       const file=event.target.files?.[0];if(!file)return;
       try {
         if(file.size>1_000_000)throw new Error('Backup must be smaller than 1 MB.');
         const raw=JSON.parse(await file.text());
-        if(raw?.version!==VERSION||!raw.profile||!Array.isArray(raw.contacts)||!Array.isArray(raw.logs)||!Array.isArray(raw.rules))throw new Error('Unsupported backup format.');
+        const compatible=migrateRecord(raw);
+        if(!compatible)throw new Error('Unsupported backup version or format. The existing records remain untouched.');
         if(!confirm('Replace all existing records in this browser with this backup?')){render();return;}
-        data=normalize(raw);data.page='settings';
-        update();toast('Backup imported into this browser.');
+        const restored=normalize(compatible);restored.page='settings';
+        try {localStorage.setItem(KEY,JSON.stringify(restored));}
+        catch {throw new Error('Browser storage rejected the backup; original records were not replaced.');}
+        data=restored;recoveryRaw=null;render();toast('Backup imported into this browser.');
       } catch(err){toast('Could not import: '+err.message);} finally {event.target.value='';}
       return;
     }
@@ -517,10 +591,16 @@
   window.addEventListener('offline',()=>{netOnline=false;render();});
   window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();installPrompt=event;});
   render();
-  if('serviceWorker' in navigator && location.protocol==='https:'){
-    navigator.serviceWorker.register('./service-worker.js')
+  // Browsers also treat loopback HTTP as a secure context for local smoke tests.
+  if('serviceWorker' in navigator && (location.protocol==='https:' || ['localhost','127.0.0.1'].includes(location.hostname))){
+    const wasControlled=!!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{
+      offlineReady=true;
+      if(wasControlled)showUpdateNotice();
+    });
+    navigator.serviceWorker.register('./service-worker.js',{updateViaCache:'none'})
       .then(()=>navigator.serviceWorker.ready)
-      .then(()=>{offlineReady=true;render();})
+      .then(()=>{offlineReady=true;})
       .catch(()=>{offlineReady=false;});
   }
 })();

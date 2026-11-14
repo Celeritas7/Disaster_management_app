@@ -22,10 +22,10 @@ Status notation: `[x]` completed in the named work branch; `[ ]` pending. A chec
 ## Phase 1S — Protect deployed app and stored records (prerequisite)
 
 - [x] **P1S-01** Fix `CF-02` / RISK-01: constrain SW cache deletion to *this app's cache names*, never touch caches belonging to any other app on `celeritas7.github.io` (unit-verified in Phase 1S branch).
-- [ ] **P1S-02** Fix `CF-03` / RISK-02: revision `v3`, fresh shell precaching and in-place update prompt implemented and unit-tested; **real-browser online/offline upgrade acceptance pending**.
+- [ ] **P1S-02** Fix `CF-03` / RISK-02: revision `v3`, fresh shell precaching and in-place update prompt implemented; **real Chromium PR test passed**, but initial deployed v2→v3 and physical-device upgrade acceptance remain pending.
 - [x] **P1S-03** Fix `CF-15` / RISK-04: retain v1 storage schema, validate version/shape, preserve incompatible raw bytes, supply original-data export/import/reset recovery and test harness.
 - [x] **P1S-04** Add automated checks: service worker only removes owned caches, preserves a simulated second app's cache, and does not corrupt existing readiness/contact/log data (13 passing Node checks; separate CI Chromium test configured).
-- [ ] **P1S-05** Confirm user-facing data export before/after update, rollback behavior, and offline shell still works with no network in **real Chrome/mobile**, not only simulated Node tests.
+- [ ] **P1S-05** Chromium CI passed offline shell, data recovery, worker upgrade and foreign-cache checks; still confirm real user-data export before/after, rollback, and **mobile/device** cold launch with no network.
 
 **Phase 1S implementation review:** [PHASE1S_SAFETY_RELEASE.md](PHASE1S_SAFETY_RELEASE.md) includes changed-file scope, tests, real-browser acceptance instructions and rollback. Work stays on a separate PR and is not deployed until accepted.
 

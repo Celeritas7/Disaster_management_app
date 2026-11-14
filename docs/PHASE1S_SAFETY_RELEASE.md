@@ -38,7 +38,7 @@ There is also a real-browser script:
 node --test tests/browser-smoke.test.mjs
 ```
 
-It uses optional `playwright` and Chromium; in an environment without a working Chromium installation it reports a **skip**, not a false pass. The implementation environment blocked the browser process before any UI assertions could run. The proposed `.github/workflows/phase1s-safety.yml` checks the PR with a configured GitHub-hosted Chromium and `REQUIRE_BROWSER=1`, where a skip is **not allowed**. The real-browser and mobile checks below remain **unverified** until results are received.
+It uses optional `playwright` and Chromium; in an environment without a working Chromium installation it reports a **skip**, not a false pass. The implementation environment blocked its local browser process before any UI assertions could run. The proposed `.github/workflows/phase1s-safety.yml` checked the PR with GitHub-hosted Chromium and `REQUIRE_BROWSER=1`, where a skip was **not allowed**. **Result: passed** ([Actions run #43611865349](https://github.com/Celeritas7/Disaster_management_app/actions/runs/43611865349)). The manual mobile/device and first-production-upgrade checks below remain unverified.
 
 ## Required acceptance checks before merge
 

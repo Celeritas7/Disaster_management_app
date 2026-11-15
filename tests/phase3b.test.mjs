@@ -194,7 +194,7 @@ test('Phase 3B remains an app-owned offline asset and uses unchanged v1 key',()=
   assert.match(html,/href="\.\/phase3b\.css"/);
   assert.match(css,/\.p3b-communication/);
   assert.match(css,/@media\(max-width:375px\)/);
-  assert.match(sw,/disaster-management-app-v12/);
+  assert.match(sw,/disaster-management-app-v13/);
   assert.match(sw,/\.\/phase3b\.css/);
   assert.match(sw,/OWNED_CACHE/);
   assert.match(js,/const KEY = 'disaster-management:v1'/);

@@ -102,6 +102,8 @@ Status notation: `[x]` completed in the named work branch; `[ ]` pending. A chec
 
 **Phase 3C implementation report:** [PHASE3C_IMPLEMENTATION_REPORT.md](PHASE3C_IMPLEMENTATION_REPORT.md). `P3-07/08` are checked for implemented code/tests in a reviewable work branch; **this does not imply deployment or device acceptance**. The mobile/dialer/SMS portion of `P3-05` is still unchecked and must be validated separately without placing test emergency calls. Follow-up recipient action links, real-world official damage assessment and automatic sending remain out of scope.
 
+**Post-3C mobile usability follow-up:** [MOBILE_UX_FOLLOWUP.md](MOBILE_UX_FOLLOWUP.md) documents direct mobile Settings access, sticky Contacts/Backups/Places shortcuts and a return-to-top control. The owner reported 3/3 physical offline tests passed on one unspecified phone platform; SMS/dialer acceptance and a second-platform check are still pending. This UI-only PR is separate from Phase 4 and requires its own review/merge.
+
 ## Phase 4 — Departure and stranded assistance
 
 - [ ] **P4-01** Investigate Android background geofence and notification feasibility versus PWA restrictions before offering “automatic departure checks” (`DP-06–07,CF-10`).

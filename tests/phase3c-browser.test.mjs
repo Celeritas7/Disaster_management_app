@@ -10,7 +10,7 @@ let chromium;
 try {({chromium}=createRequire(import.meta.url)('playwright'));}catch {/* Required by CI. */}
 const root=process.env.DMA_TEST_ROOT||join(dirname(fileURLToPath(import.meta.url)),'..');
 const prefix='/Disaster_management_app/';
-const files=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','phase2a.css','phase2b.css','phase2c.css','phase3a.css','phase3b.css','phase3c.css',
+const files=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','phase2a.css','phase2b.css','phase2c.css','phase3a.css','phase3b.css','phase3c.css','mobile-ux.css',
   'service-worker.js','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
 const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 const KEY='disaster-management:v1';
@@ -135,7 +135,7 @@ test('Phase 3C: local photo evidence, v1 backup, offline rehearsal and no inferr
   await context.setOffline(true);
   await page.reload({waitUntil:'domcontentloaded',timeout:15000});
   const caches=await page.evaluate(()=>caches.keys());
-  assert.ok(caches.includes('disaster-management-app-v12'));
+  assert.ok(caches.includes('disaster-management-app-v13'));
   assert.ok(caches.includes('kg-chart-offline-v1'));
   await page.evaluate(()=>document.querySelector('button[data-action="go"][data-page="log"]')?.click());
   assert.match(await page.locator('.p3c-records').innerText(),/Self-reported observation/);

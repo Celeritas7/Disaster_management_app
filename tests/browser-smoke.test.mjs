@@ -13,8 +13,8 @@ catch { /* Playwright is optional for this static, dependency-free web app. */ }
 const root = process.env.DMA_TEST_ROOT || join(dirname(fileURLToPath(import.meta.url)), '..');
 const prefix = '/Disaster_management_app/';
 const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'};
-const allowed = new Set(['index.html','app.js','service-worker.js','styles.css','phase1b.css','phase1c.css','phase2a.css','phase2b.css','phase2c.css','phase3a.css','phase3b.css','phase3c.css','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
-let swRevision = 'v12';
+const allowed = new Set(['index.html','app.js','service-worker.js','styles.css','phase1b.css','phase1c.css','phase2a.css','phase2b.css','phase2c.css','phase3a.css','phase3b.css','phase3c.css','mobile-ux.css','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
+let swRevision = 'v13';
 
 test('a real Chromium install preserves other apps and local data across offline and worker upgrades', {timeout:90000}, async t => {
   if (!chromium) {
@@ -27,8 +27,8 @@ test('a real Chromium install preserves other apps and local data across offline
     if (!allowed.has(name)) {res.writeHead(404);res.end('Not found');return;}
     try {
       let body = readFileSync(join(root,name));
-      if(name === 'service-worker.js' && swRevision === 'v13')
-        body = Buffer.from(body.toString('utf8').replace("disaster-management-app-v12'", "disaster-management-app-v13'"));
+      if(name === 'service-worker.js' && swRevision === 'v14')
+        body = Buffer.from(body.toString('utf8').replace("disaster-management-app-v13'", "disaster-management-app-v14'"));
       const ext = name === 'manifest.webmanifest' ? '.webmanifest' : name.slice(name.lastIndexOf('.'));
       res.writeHead(200,{'Content-Type':types[ext]||'application/octet-stream','Cache-Control':'no-store'});
       res.end(body);
@@ -73,18 +73,18 @@ test('a real Chromium install preserves other apps and local data across offline
 
   // A revised worker must update its shell without disturbing an active form.
   await page.locator('#home-address').fill('text not yet saved');
-  swRevision = 'v13';
+  swRevision = 'v14';
   await page.evaluate(async()=>{const reg=await navigator.serviceWorker.getRegistration();await reg.update();});
   await page.getByRole('button',{name:'Reload to update'}).waitFor({timeout:15000});
   assert.equal(await page.locator('#home-address').inputValue(),'text not yet saved');
   // Worker activation/cache cleanup can finish after the controller event.
   await page.waitForFunction(async()=>{
     const names=await caches.keys();
-    return names.includes('disaster-management-app-v13') && !names.includes('disaster-management-app-v12');
+    return names.includes('disaster-management-app-v14') && !names.includes('disaster-management-app-v13');
   },null,{timeout:8000});
   let keys = await page.evaluate(()=>caches.keys());
   assert.ok(keys.includes('kg-chart-offline-v1'));
-  assert.ok(keys.includes('disaster-management-app-v13'));
+  assert.ok(keys.includes('disaster-management-app-v14'));
   // A stale cache can be temporarily reopened by an in-flight older worker;
   // the wait above checks that the new worker performed its cleanup.
 

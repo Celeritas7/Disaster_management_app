@@ -11,7 +11,7 @@ try {({chromium}=createRequire(import.meta.url)('playwright'));}
 catch {/* Browser runner installs this in GitHub Actions. */}
 const root=process.env.DMA_TEST_ROOT || join(dirname(fileURLToPath(import.meta.url)),'..');
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
-const shell=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','phase2a.css','service-worker.js','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
+const shell=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','phase2a.css','phase2b.css','service-worker.js','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
 
 test('Phase 1A Watch, setup and Readiness work at 320–412px without misleading live data', {timeout:90000}, async t=>{
   if(!chromium){
@@ -80,12 +80,12 @@ test('Phase 1A Watch, setup and Readiness work at 320–412px without misleading
   await page.getByRole('button',{name:'Exit tour'}).click();
 
   await page.getByRole('button',{name:'Ready',exact:true}).click();
-  await page.getByText('10 things to check').waitFor();
+  await page.getByText('14 readiness gaps').waitFor();
   await photo('readiness-412.png');
-  await page.getByRole('button',{name:'Mark Drinking water verified after checking it'}).click();
-  await page.getByText('9 things to check').waitFor();
+  await page.getByRole('button',{name:'Mark checked by me: Shelf-stable food'}).first().click();
+  await page.getByText('13 readiness gaps').waitFor();
   const checked=await page.evaluate(()=>JSON.parse(localStorage.getItem('disaster-management:v1')));
-  assert.equal(checked.checks.water,true);
+  assert.equal(checked.checks.food,true);
   assert.equal(checked.version,1);
   for(const width of [375,320,412])await noOverflow(width);
   assert.deepEqual(errors,[]);

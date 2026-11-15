@@ -9,17 +9,24 @@
   const MIGRATIONS = Object.freeze({});
   let recoveryRaw = null;
   const CHECKS = [
-    {id:'water', group:'Survival essentials', title:'Drinking water', note:'Store an appropriate emergency supply and check the expiry dates.', pts:12},
-    {id:'food', group:'Survival essentials', title:'Shelf-stable food', note:'Food you can eat even if power and cooking are unavailable.', pts:10},
+    {id:'water', group:'Survival essentials', title:'Drinking water', note:'Store an appropriate emergency supply and check the expiry dates.', pts:12,unit:'L',critical:true},
+    {id:'food', group:'Survival essentials', title:'Shelf-stable food', note:'Food you can eat even if power and cooking are unavailable.', pts:10,unit:'days',critical:true},
     {id:'light', group:'Survival essentials', title:'Torch, radio and batteries', note:'A light and a way to receive official information.', pts:10},
     {id:'power', group:'Survival essentials', title:'Phone power bank charged', note:'Keep the charging cable with your emergency bag.', pts:8},
     {id:'bag', group:'Evacuation kit', title:'Go-bag packed near the door', note:'Shoes, warm layer, hygiene items and essential supplies.', pts:12},
     {id:'documents', group:'Evacuation kit', title:'Important documents accessible', note:'Know where to find passport, residence card, insurance and copies.', pts:10},
-    {id:'cash', group:'Evacuation kit', title:'Emergency cash available', note:'Small notes and coins for card or network outages.', pts:8},
+    {id:'cash', group:'Evacuation kit', title:'Emergency cash available', note:'Small notes and coins for card or network outages.', pts:8,unit:'JPY'},
     {id:'contacts', group:'Family & location', title:'Emergency contact list ready', note:'Include someone outside your immediate region.', pts:10},
     {id:'shelter', group:'Family & location', title:'Designated shelter verified', note:'Check the official municipality map and walk the route if possible.', pts:10},
-    {id:'plan', group:'Family & location', title:'Reunion and check-in plan agreed', note:'Decide where to meet and how to communicate.', pts:10}
+    {id:'plan', group:'Family & location', title:'Reunion and check-in plan agreed', note:'Decide where to meet and how to communicate.', pts:10},
+    {id:'firstAid', group:'Health & comfort', title:'First-aid and essential medicines', note:'Keep appropriate first-aid items and your own necessary medicines accessible.', pts:10,critical:true},
+    {id:'sanitation', group:'Health & comfort', title:'Toilet and hygiene supplies', note:'Prepare portable toilet supplies, hygiene essentials and any personal care items.', pts:10},
+    {id:'clothing', group:'Health & comfort', title:'Sturdy shoes and weather protection', note:'Include suitable clothes, gloves and rain or cold-weather protection.', pts:9},
+    {id:'whistle', group:'Health & comfort', title:'Whistle and protective items', note:'Keep a whistle and appropriate protective supplies accessible.', pts:9}
   ];
+  const CORE_CHECK_IDS = new Set(CHECKS.map(c=>c.id));
+  const READINESS_UNITS = ['items','L','days','packs','JPY'];
+  const EMBASSY_STATUSES = ['unknown','registered','not-registered','not-applicable'];
   const INCIDENT = [
     {n:1,title:'First, protect yourself',jp:'まず安全を確保',desc:'During shaking, protect your head and stay clear of falling objects.'},
     {n:2,title:'Make the area safe',jp:'身の安全を確認',desc:'When shaking stops, check for immediate hazards.',items:[
@@ -99,9 +106,44 @@
   function safe(v) {
     return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
+  function jstDay(date=Date.now()) {
+    return new Date(date+9*60*60*1000).toISOString().slice(0,10);
+  }
+  function validInventoryDate(value) {
+    if(typeof value!=='string'||!/^20\d\d-\d\d-\d\d$/.test(value))return false;
+    const d=new Date(value+'T00:00:00Z');
+    return !Number.isNaN(d.getTime())&&d.toISOString().slice(0,10)===value;
+  }
+  function normalizeInventoryDetail(raw,unit='items') {
+    const d=raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:{};
+    const amount=x=>x===null||x===undefined||x===''||!Number.isFinite(Number(x))||Number(x)<0||Number(x)>1_000_000_000?null:Math.round(Number(x)*100)/100;
+    const date=x=>validInventoryDate(x)?x:'';
+    return {quantity:amount(d.quantity),target:amount(d.target),unit:READINESS_UNITS.includes(unit)?unit:'items',
+      expiry:date(d.expiry),reviewDue:date(d.reviewDue),reviewedAt:date(d.reviewedAt),
+      needsReview:!!d.needsReview,note:typeof d.note==='string'?d.note.slice(0,240):''};
+  }
+  function inventoryDetail(id) {
+    return CORE_CHECK_IDS.has(id)?data.readiness.items[id]:data.readiness.custom.find(c=>c.id===id);
+  }
+  function readinessStatus(item) {
+    const isCustom=!CORE_CHECK_IDS.has(item.id);
+    const checked=isCustom?!!item.checked:!!data.checks[item.id];
+    const detail=inventoryDetail(item.id)||normalizeInventoryDetail({});
+    const today=jstDay();
+    if(detail.expiry&&detail.expiry<today)return {key:'expired',label:'Expired · user-entered',reason:'The date you entered has passed. Replace or recheck this item.',ready:false};
+    if(detail.reviewDue&&detail.reviewDue<today)return {key:'review-due',label:'Review overdue',reason:'Your scheduled review date has passed. Check this item again.',ready:false};
+    if(!checked)return {key:'unchecked',label:'Not checked',reason:'Not yet marked as personally checked.',ready:false};
+    if(detail.target!==null && (detail.quantity===null||detail.quantity<detail.target))
+      return {key:'short',label:detail.quantity===null?'Quantity unknown':'Below your target',reason:detail.quantity===null?'Enter the amount you have.':'The recorded amount is below your own target.',ready:false};
+    if((item.id==='water'||item.id==='cash') && (!detail.target||detail.quantity===null))
+      return {key:'unknown',label:'Target / amount unknown',reason:'Enter the amount on hand and your own target to count this item.',ready:false};
+    if(detail.needsReview)return {key:'recheck',label:'Recheck after editing',reason:'Details changed since your last check. Confirm the item again.',ready:false};
+    return {key:'checked',label:'Checked by you',reason:detail.reviewedAt?'Last checked by you: '+detail.reviewedAt:'Earlier check retained; date unknown',ready:true};
+  }
   function defaults() {
     return {version:VERSION,page:'watch',tourStep:0,tourDone:false,profile:{home:'',office:'',shelter:'',safePlace:'',station:'',shelterSource:'',placeChecks:{}},
-      checks:{},contacts:[],incident:{active:false,step:1,done:{},contacted:[],note:'',oneStep:false,cursor:{},outcomes:{}},
+      checks:{},readiness:{items:{},custom:[],nextCustomId:1,embassy:{status:'unknown',updatedAt:''}},
+      contacts:[],incident:{active:false,step:1,done:{},contacted:[],note:'',oneStep:false,cursor:{},outcomes:{}},
       departure:{wallet:false,pass:false,phone:false,keys:false},strandedStep:0,
       night:{phase:'idle',limit:2,budget:3000,leave:'23:30',leaveAt:null,mode:'train',drinks:0,spent:0,note:'',costHistory:[]},
       scenario:false,logs:[],rules:[]};
@@ -126,6 +168,23 @@
         d.profile.placeChecks[k]={checkedAt:at,source:k==='shelter'?'municipality-self':'user-self'};
     }
     for(const c of CHECKS) d.checks[c.id]=!!obj(raw.checks)[c.id];
+    // Additive metadata under the existing v1 storage key: old checkmarks are
+    // retained verbatim, but absent quantity/expiry fields are UNKNOWN.
+    const readiness=obj(raw.readiness),itemDetails=obj(readiness.items);
+    for(const c of CHECKS)d.readiness.items[c.id]=normalizeInventoryDetail(itemDetails[c.id],c.unit||'items');
+    const seen=new Set();
+    for(const rawItem of Array.isArray(readiness.custom)?readiness.custom.slice(0,30):[]){
+      if(!rawItem||typeof rawItem!=='object'||!/^custom-\d+$/.test(rawItem.id)||seen.has(rawItem.id))continue;
+      const title=str(rawItem.title,90).trim();if(!title)continue;
+      seen.add(rawItem.id);
+      d.readiness.custom.push({id:rawItem.id,title,checked:!!rawItem.checked,
+        ...normalizeInventoryDetail(rawItem,READINESS_UNITS.includes(rawItem.unit)?rawItem.unit:'items')});
+    }
+    const largest=d.readiness.custom.reduce((n,c)=>Math.max(n,Number(c.id.slice(7))||0),0);
+    d.readiness.nextCustomId=Math.max(largest+1,num(readiness.nextCustomId,1_000_000,1));
+    const embassy=obj(readiness.embassy);
+    d.readiness.embassy={status:EMBASSY_STATUSES.includes(embassy.status)?embassy.status:'unknown',
+      updatedAt:validInventoryDate(embassy.updatedAt)?embassy.updatedAt:''};
     d.contacts=(Array.isArray(raw.contacts)?raw.contacts:[]).filter(c=>c&&typeof c.name==='string'&&typeof c.phone==='string')
       .slice(0,100).map(c=>({name:str(c.name,70),phone:str(c.phone,26),
         role:CONTACT_ROLES.includes(c.role)?c.role:'unspecified'}));
@@ -212,8 +271,10 @@
   let watchLayout = 'radar';
   let nightLayout = 'counters';
   let contactEditIndex = null; // UI-only; never confuse editing with a saved contact.
+  let inventoryOpenId = null; // UI-only; retain the detail panel being edited.
   const app = document.getElementById('app');
-  const readyCount = () => CHECKS.reduce((n,c) => n+(data.checks[c.id] ? c.pts : 0),0);
+  const readyCount = () => Math.round(100*CHECKS.reduce((n,c)=>n+(readinessStatus(c).ready?c.pts:0),0)/CHECKS.reduce((n,c)=>n+c.pts,0));
+  const usableCount = () => CHECKS.filter(c=>readinessStatus(c).ready).length;
   const doneCount = () => CHECKS.filter(c => data.checks[c.id]).length;
   const when = () => new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Tokyo',day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date());
   const yen = n => '¥'+Number(n || 0).toLocaleString('en-JP');
@@ -334,7 +395,7 @@
     return `<div class="p1a-risk-grid ${compact?'p1a-risk-compact':''}" aria-label="Unconnected monitoring sources">${risks.map(([title,ic,desc])=>`<div class="p1a-risk-tile"><span class="p1a-risk-icon">${icon(ic)}</span><div><strong>${title}</strong><small>Unknown · Not connected</small>${compact?'':`<p>${desc}</p>`}</div></div>`).join('')}</div>`;
   }
   function watch() {
-    const score=readyCount(),next=CHECKS.find(c=>!data.checks[c.id]);
+    const score=readyCount(),next=CHECKS.find(c=>!readinessStatus(c).ready);
     const demo=data.scenario;
     const visual=watchLayout==='radar'
       ? `${demo?`<section class="p1a-prediction" aria-label="Demonstration forecast card"><div class="p1a-prediction-top"><span>TOMORROW’S COMMUTE · EXAMPLE</span><span class="p1a-demo-tag">DEMO · NO FORECAST</span></div><h3>What if heavy rain affects your route?</h3><p>This is an imaginary scenario to show how a future recommendation might look. No rain, route, probability or timing has been measured.</p><div class="p1a-prediction-evidence">${icon('info','sm')} Hypothetical situation · No live evidence</div><div class="p1a-prediction-actions">${link('https://www.jma.go.jp/bosai/','Check official JMA weather')}${action('sample','Not relevant · dismiss','btn-outline btn-sm')}</div></section>`
@@ -349,7 +410,7 @@
       <div class="p1a-layout-selector" role="group" aria-label="Watch display layout">${[['radar','Radar'],['list','List'],['card','Cards']].map(([id,label])=>`<button type="button" data-action="watch-layout" data-layout="${id}" class="${watchLayout===id?'is-active':''}" aria-pressed="${watchLayout===id}">${label}</button>`).join('')}</div>
       ${visual}
       ${watchLayout==='radar'?watchRiskTiles():''}
-      <section class="p1a-readiness-strip"><div>${scoreRing()}<div><span class="p1a-section-label">YOUR READINESS · USER CHECKED</span><strong>${score===100?'10 items marked verified':`${doneCount()} / ${CHECKS.length} items verified`}</strong><small>${next?'Next to check: '+safe(next.title):'Please review your kit regularly.'}</small></div></div>${action('go','Review readiness '+icon('arrow','sm'),'btn-primary','data-page="readiness"')}</section>
+      <section class="p1a-readiness-strip"><div>${scoreRing()}<div><span class="p1a-section-label">YOUR READINESS · SELF-REPORTED</span><strong>${usableCount()} / ${CHECKS.length} core items counted ready</strong><small>${next?'Next gap: '+safe(next.title)+' · '+safe(readinessStatus(next).label):'All core items currently counted; review them regularly.'}</small></div></div>${action('go','Review readiness '+icon('arrow','sm'),'btn-primary','data-page="readiness"')}</section>
       <div class="section-heading"><h2>Do something useful now</h2><small>Manual tools, available offline</small></div>
       <div class="action-grid">${tile('incident','Emergency guide','7-step earthquake response','alert','red')}${tile('departure','Departure check','Wallet, pass, phone and keys','bag','')}${tile('stranded','Stranded options','Try a practical fallback','pin','amber')}${tile('night','Night Out','Set limits before leaving','moon','green')}</div>
       <div class="info-band blue p1a-official"><span>${icon('info')}</span><div><strong>Watch does not monitor hazards yet.</strong> A quiet animation or an example card does not indicate your surroundings are safe. For current warnings, use official agencies and local evacuation notices.<div class="link-list" style="margin-top:12px">${link('https://www.jma.go.jp/bosai/','JMA 防災')}${link('https://www.bousai.go.jp/','Cabinet Office 防災')}</div></div></div>
@@ -359,16 +420,35 @@
   function tile(page,title,note,ic,color) {
     return `<button class="action-tile" data-action="go" data-page="${page}"><span class="tile-icon ${color}">${icon(ic)}</span><span class="tile-title">${title}</span><span class="tile-note">${note}</span></button>`;
   }
+  function inventoryCard(item,isCustom=false) {
+    const detail=inventoryDetail(item.id)||normalizeInventoryDetail({},item.unit||'items');
+    const status=readinessStatus(item),checked=isCustom?!!item.checked:!!data.checks[item.id];
+    const unit=detail.unit||'items',id=item.id;
+    const val=value=>value===null?'':String(value);
+    const namedDate=(label,key)=>`<label class="p2b-field">${label}<input id="inventory-${key}-${id}" type="date" value="${safe(detail[key])}" /></label>`;
+    const amount=(label,key)=>`<label class="p2b-field">${label} (${safe(unit)})<input id="inventory-${key}-${id}" type="number" min="0" max="1000000000" step="${unit==='JPY'||unit==='items'||unit==='packs'?'1':'0.01'}" inputmode="decimal" value="${val(detail[key])}" placeholder="Not entered" /></label>`;
+    return `<article class="p2b-inventory-item p2b-status-${status.key}" id="readiness-${id}">
+      <div class="p2b-item-top"><button type="button" class="p2b-check-button ${checked?'is-checked':''}" data-action="toggle-check" data-id="${id}" aria-pressed="${checked}" aria-label="${checked?'Undo check for':'Mark checked by me:'} ${safe(item.title)}">${icon('check','sm')}</button><div class="p2b-item-main"><strong>${safe(item.title)}</strong><p>${safe(item.note)}</p><span class="p2b-status-badge ${status.key}">${safe(status.label)}</span><small>${safe(status.reason)}${detail.reviewedAt?' · Last self-check: '+safe(detail.reviewedAt):''}</small></div>${isCustom?'<span class="p2b-unweighted">Extra</span>':`<span class="check-weight">${item.pts} pts</span>`}</div>
+      <details class="p2b-item-details" id="details-${id}" ${inventoryOpenId===id?'open':''}><summary>Quantity, expiry &amp; review details</summary><div class="p2b-detail-grid">${amount('Amount on hand','quantity')}${amount('My target','target')}${namedDate('Expiry date · if applicable','expiry')}${namedDate('Next review due','reviewDue')}${isCustom?`<label class="p2b-field">Unit<select id="inventory-unit-${id}">${READINESS_UNITS.map(u=>`<option value="${u}" ${unit===u?'selected':''}>${u}</option>`).join('')}</select></label>`:''}<label class="p2b-field p2b-note">Private note<input id="inventory-note-${id}" maxlength="240" value="${safe(detail.note)}" placeholder="Storage place, replacement reminder…" /></label></div><p class="p2b-detail-help">Dates and amounts are entered by you. Editing details requires a fresh personal check before this item counts as ready. Nothing is independently inspected.</p><div class="p2b-detail-actions">${action('save-inventory-detail','Save details','btn-outline',`data-id="${id}"`)}${action('confirm-inventory','I checked this item today','btn-primary',`data-id="${id}"`)}${isCustom?action('remove-custom-inventory','Remove extra','btn-quiet',`data-id="${id}"`):''}</div></details>
+    </article>`;
+  }
   function readiness() {
-    const remaining=CHECKS.length-doneCount(),gaps=CHECKS.filter(c=>!data.checks[c.id]).slice(0,3);
     const groups=[...new Set(CHECKS.map(c=>c.group))];
-    return `<section class="p1a-readiness-page">${pageHeader('READINESS · 備え','Your readiness gaps.','Each point comes from a checklist item you personally marked. A tick is not independent verification.')}
-      <div class="p1a-readiness-overview">${scoreRing(150)}<div><h2>${remaining?`${remaining} things to check`:'All 10 items marked'}</h2><p>${remaining?'Start with these three gaps. Review the complete inventory below.':'Your manual checklist is complete; check supplies and expiry dates regularly.'}</p><span class="p1a-quiet-chip">${doneCount()} of ${CHECKS.length} manually verified</span></div></div>
-      <div class="p1a-gap-heading"><span class="p1a-section-label">${remaining?'THREE NEXT GAPS':'MAINTENANCE'}</span><small>Only mark an item when you check it</small></div>
-      <div class="p1a-gap-grid">${gaps.map(c=>`<article class="p1a-gap-card"><div><strong>${safe(c.title)}</strong><p>${safe(c.note)}</p></div><button class="p1a-gap-action" type="button" data-action="toggle-check" data-id="${c.id}" aria-label="Mark ${safe(c.title)} verified after checking it">Mark verified ${icon('arrow','sm')}</button></article>`).join('')||'<div class="info-band blue">No unchecked items. Revisit your supplies periodically; tap any checked row below to update its status.</div>'}</div>
-      <div class="p1a-gap-heading"><span class="p1a-section-label">INVENTORY</span><small>10 checklist items · grouped by purpose</small></div>
-      <div class="p1a-inventory-summary">${groups.map(g=>{const entries=CHECKS.filter(c=>c.group===g),count=entries.filter(c=>data.checks[c.id]).length;return `<div><span>${safe(g)}</span><strong>${count} / ${entries.length} checked</strong></div>`;}).join('')}</div>
-      ${groups.map(g=>`<section class="subsection"><div class="section-heading"><h2>${safe(g)}</h2><small>Tap to confirm or undo</small></div><div class="checklist-list">${CHECKS.filter(c=>c.group===g).map(c=>`<button class="check-row ${data.checks[c.id]?'is-done':''}" data-action="toggle-check" data-id="${c.id}" aria-pressed="${!!data.checks[c.id]}"><span class="check-control">${icon('check','sm')}</span><span class="check-copy"><strong>${safe(c.title)}</strong><p>${safe(c.note)}</p></span><span class="check-weight">${c.pts} pts</span></button>`).join('')}</div></section>`).join('')}
+    const remaining=CHECKS.length-usableCount();
+    const gaps=CHECKS.filter(c=>!readinessStatus(c).ready).sort((a,b)=>Number(!!b.critical)-Number(!!a.critical)).slice(0,3);
+    const expired=CHECKS.filter(c=>readinessStatus(c).key==='expired').length;
+    const embassy=data.readiness.embassy;
+    return `<section class="p1a-readiness-page p2b-readiness">${pageHeader('READINESS · 備え','A kit you can actually review.','14 core preparation checks plus your optional extras. All details are self-reported and kept in this browser; this is not a safety certification.')}
+      <div class="p1a-readiness-overview">${scoreRing(150)}<div><h2>${remaining?`${remaining} readiness gaps`:'All 14 core items counted ready'}</h2><p>Weighted score counts only core items that you marked and whose recorded dates and required quantities do not show a gap. It cannot verify the items physically or guarantee safety.</p><span class="p1a-quiet-chip">${usableCount()} / ${CHECKS.length} counted · ${doneCount()} marked by you${expired?' · '+expired+' expired':''}</span></div></div>
+      <div class="p2b-status-key" aria-label="Readiness status explanations"><span>✓ Checked by you: self-attested</span><span>! Unknown: details needed</span><span>! Expired / review due: not counted</span><span>System verified: none</span></div>
+      <div class="p1a-gap-heading"><span class="p1a-section-label">${remaining?'THREE PRIORITY GAPS':'MAINTENANCE'}</span><small>Review your entries before confirming</small></div>
+      <div class="p1a-gap-grid">${gaps.map(c=>{const s=readinessStatus(c);return `<article class="p1a-gap-card"><div><strong>${safe(c.title)}</strong><p>${safe(s.reason)}</p><small>${safe(s.label)}</small></div>${s.key==='unchecked'&&c.id!=='water'&&c.id!=='cash'?`<button class="p1a-gap-action" type="button" data-action="toggle-check" data-id="${c.id}" aria-label="Mark checked by me: ${safe(c.title)}">Mark checked by me ${icon('arrow','sm')}</button>`:`<button class="p1a-gap-action" type="button" data-action="focus-inventory" data-id="${c.id}">Review item details ${icon('arrow','sm')}</button>`}</article>`;}).join('')||'<div class="info-band blue">No current core gaps. Review quantities, expiry dates and physical supplies regularly.</div>'}</div>
+      <div class="info-band blue p2b-guide">${icon('info')}<div><strong>Choose realistic targets.</strong> The Japanese Cabinet Office recommends planning home drinking-water supplies around 3 L per person per day for at least three days. A portable go-bag is different: keep it carryable. These are guidance, not quantities automatically assigned to you. ${link('https://www.bousai.go.jp/kyoiku/hokenkyousai/check.html','Official preparation guidance')}</div></div>
+      <div class="p1a-gap-heading"><span class="p1a-section-label">CORE INVENTORY</span><small>${CHECKS.length} items · custom amounts and dates</small></div>
+      <div class="p1a-inventory-summary">${groups.map(g=>{const entries=CHECKS.filter(c=>c.group===g),count=entries.filter(c=>readinessStatus(c).ready).length;return `<div><span>${safe(g)}</span><strong>${count} / ${entries.length} counted ready</strong></div>`;}).join('')}</div>
+      ${groups.map(g=>`<section class="subsection"><div class="section-heading"><h2>${safe(g)}</h2><small>Open a row to edit details</small></div><div class="p2b-inventory-list">${CHECKS.filter(c=>c.group===g).map(c=>inventoryCard(c)).join('')}</div></section>`).join('')}
+      <section class="p2b-custom-section"><div class="section-heading"><h2>Your extra items</h2><small>Not included in the 100-point core score</small></div><p>Add personal essentials without changing the 14-item baseline or previously saved checks.</p><div class="p2b-inventory-list">${data.readiness.custom.map(c=>inventoryCard(c,true)).join('')}</div>${data.readiness.custom.length===0?'<p class="p2b-empty">No extra items added yet.</p>':''}<div class="p2b-add-form"><label class="p2b-field">New item name<input id="custom-inventory-title" type="text" maxlength="90" placeholder="e.g. Glasses, pet supplies" /></label><label class="p2b-field">Notes · optional<input id="custom-inventory-note" type="text" maxlength="240" placeholder="What to pack or review" /></label>${action('add-custom-inventory','Add extra item '+icon('plus','sm'),'btn-primary')}</div></section>
+      <section class="p2b-embassy-section"><div class="section-heading"><h2>Embassy registration · if relevant</h2></div><p>For foreign residents: track whether you registered with your own embassy. This is an optional personal reminder, not checked against an embassy database and not part of the readiness score.</p><label class="p2b-field">My reported status<select id="embassy-status">${[['unknown','Not checked / unknown'],['not-registered','Not registered'],['registered','I registered myself'],['not-applicable','Not applicable to me']].map(([value,label])=>`<option value="${value}" ${embassy.status===value?'selected':''}>${label}</option>`).join('')}</select></label><div class="p2b-detail-actions">${action('save-embassy-status','Save my status','btn-outline')}<small>${embassy.updatedAt?'Last updated by you: '+safe(embassy.updatedAt):'No status confirmation date saved'}</small></div></section>
       <div class="section-heading"><h2>Personal details</h2></div><div class="info-band blue">${icon('pin')}<div>Save your shelter and emergency contacts from Settings. These are user-entered, not independently verified. ${action('go','Open settings','btn-quiet btn-sm','data-page="settings"')}</div></div>
       </section>`;
   }
@@ -618,7 +698,86 @@
       if(['radar','list','card'].includes(button.dataset.layout))watchLayout=button.dataset.layout;
       return render();
     }
-    if(name==='toggle-check') {data.checks[id]=!data.checks[id];return update();}
+    if(name==='toggle-check'||name==='confirm-inventory') {
+      const core=CORE_CHECK_IDS.has(id),custom=data.readiness.custom.find(c=>c.id===id);
+      if(!core&&!custom)return;
+      const already=core?!!data.checks[id]:!!custom.checked;
+      const checked=name==='confirm-inventory'?true:!already;
+      if(core)data.checks[id]=checked;else custom.checked=checked;
+      if(checked){
+        const details=inventoryDetail(id)||normalizeInventoryDetail({});
+        details.reviewedAt=jstDay();details.needsReview=false;
+        if(core)data.readiness.items[id]=details;
+      }
+      inventoryOpenId=name==='confirm-inventory'?id:null;
+      update();
+      if(checked){
+        const item=core?CHECKS.find(c=>c.id===id):custom;
+        if(!readinessStatus(item).ready)toast('Personal check saved, but this item is not counted ready: '+readinessStatus(item).label+'.');
+      }
+      return;
+    }
+    if(name==='focus-inventory'){
+      if(!CORE_CHECK_IDS.has(id)&&!data.readiness.custom.some(c=>c.id===id))return;
+      const details=app.querySelector('#details-'+id);
+      if(details){details.open=true;details.scrollIntoView?.({behavior:'smooth',block:'center'});details.querySelector('input')?.focus?.();}
+      return;
+    }
+    if(name==='save-inventory-detail'){
+      const core=CORE_CHECK_IDS.has(id),custom=data.readiness.custom.find(c=>c.id===id);
+      if(!core&&!custom)return;
+      const existing=inventoryDetail(id)||normalizeInventoryDetail({});
+      const amount=(key)=>{
+        const raw=field('inventory-'+key+'-'+id)?.value;
+        if(raw===undefined)return {error:'Item form not found.'};
+        if(raw.trim()==='')return {value:null};
+        const value=Number(raw);
+        if(!Number.isFinite(value)||value<0||value>1_000_000_000||!/^\d+(?:\.\d{1,2})?$/.test(raw.trim()))
+          return {error:'Enter a non-negative amount (up to two decimal places).'};
+        return {value};
+      };
+      const quantity=amount('quantity'),target=amount('target');
+      if(quantity.error||target.error)return toast(quantity.error||target.error);
+      const dates={};
+      for(const key of ['expiry','reviewDue']){
+        const raw=field('inventory-'+key+'-'+id)?.value??'';
+        if(raw&&!validInventoryDate(raw))return toast('Enter a valid '+(key==='expiry'?'expiry':'review')+' date.');
+        dates[key]=raw;
+      }
+      const unit=core?(CHECKS.find(c=>c.id===id)?.unit||'items'):field('inventory-unit-'+id)?.value;
+      if(!READINESS_UNITS.includes(unit))return toast('Choose a valid quantity unit.');
+      const note=(field('inventory-note-'+id)?.value||'').trim().slice(0,240);
+      const next={...existing,quantity:quantity.value,target:target.value,unit,...dates,note};
+      const keys=['quantity','target','unit','expiry','reviewDue','note'];
+      const edited=keys.some(key=>next[key]!==existing[key]);
+      const checked=core?!!data.checks[id]:!!custom.checked;
+      if(edited&&checked)next.needsReview=true;
+      if(core)data.readiness.items[id]=next;else Object.assign(custom,next);
+      inventoryOpenId=id;update();
+      toast(edited&&checked?'Details saved. Confirm your personal check again to count this item.':'Inventory details saved locally.');
+      return;
+    }
+    if(name==='add-custom-inventory'){
+      const title=(field('custom-inventory-title')?.value||'').trim().slice(0,90);
+      const note=(field('custom-inventory-note')?.value||'').trim().slice(0,240);
+      if(!title)return toast('Enter a name for the extra item.');
+      if(data.readiness.custom.length>=30)return toast('Limit of 30 custom items reached.');
+      const id='custom-'+data.readiness.nextCustomId++;
+      data.readiness.custom.push({id,title,checked:false,...normalizeInventoryDetail({note})});
+      inventoryOpenId=id;update();return toast('Extra item saved. It does not change the core score.');
+    }
+    if(name==='remove-custom-inventory'){
+      const pos=data.readiness.custom.findIndex(c=>c.id===id);
+      if(pos<0)return;
+      if(!confirm('Remove this extra inventory item and its saved details from this browser?'))return;
+      data.readiness.custom.splice(pos,1);inventoryOpenId=null;update();return toast('Extra item removed locally.');
+    }
+    if(name==='save-embassy-status'){
+      const status=field('embassy-status')?.value;
+      if(!EMBASSY_STATUSES.includes(status))return toast('Choose a registration status.');
+      data.readiness.embassy={status,updatedAt:jstDay()};update();
+      return toast('Your own embassy-registration status was saved. No embassy was contacted.');
+    }
     if(name==='incident-step'){data.incident.active=true;data.incident.step=Number(button.dataset.step)||1;return update();}
     if(name==='incident-next'){data.incident.active=true;data.incident.step=Math.min(7,data.incident.step+1);return update();}
     if(name==='incident-prev'){data.incident.step=Math.max(1,data.incident.step-1);return update();}

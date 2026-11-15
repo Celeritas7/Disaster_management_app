@@ -1,0 +1,56 @@
+/* Phase 2B: local, user-reported readiness. No live verification or storage sync. */
+.p2b-readiness{min-width:0}
+.p2b-readiness .p1a-readiness-overview{margin-bottom:15px}
+.p2b-status-key{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:13px 0 22px}
+.p2b-status-key span{border:1px solid #534b63;background:#24202e;border-radius:10px;padding:10px 12px;color:#ded5e8;font-size:12px;line-height:1.5}
+.p2b-readiness .p1a-gap-card{min-width:0}
+.p2b-readiness .p1a-gap-card small{display:block;color:#d5bd96;font-size:11px;line-height:1.5;margin:0 0 12px}
+.p2b-guide{margin:20px 0 6px}
+.p2b-inventory-list{display:flex;flex-direction:column;gap:11px;min-width:0}
+.p2b-inventory-item{border:1px solid #494257;background:#1d1b27;border-radius:15px;padding:15px;min-width:0;scroll-margin-top:25px}
+.p2b-inventory-item.p2b-status-checked{border-color:#416b5d;background:#182923}
+.p2b-inventory-item.p2b-status-expired,.p2b-inventory-item.p2b-status-review-due{border-color:#8b5157}
+.p2b-item-top{display:flex;gap:11px;align-items:flex-start;min-width:0}
+.p2b-item-main{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
+.p2b-item-main>strong{display:block;color:#f5eff9;font-size:15px;line-height:1.35}
+.p2b-item-main p{color:#b6abbd;font-size:12px;line-height:1.55;margin:5px 0 9px}
+.p2b-item-main>small{display:block;font-size:11px;color:#c9bbcf;line-height:1.5;margin:8px 0 0}
+.p2b-check-button{flex:0 0 44px;width:44px;height:44px;min-height:44px;display:grid;place-items:center;border-radius:12px;border:2px solid #776b8b;background:#302b3e;color:transparent}
+.p2b-check-button:hover{border-color:#a9a3f9}
+.p2b-check-button.is-checked{border-color:#75c9a8;background:#3b735e;color:#f9fffc}
+.p2b-item-top .check-weight,.p2b-unweighted{flex:none;color:#b5a9bf;font-size:10px;margin-top:5px;white-space:nowrap}
+.p2b-status-badge{display:inline-block;padding:5px 9px;border-radius:100px;border:1px solid #746985;color:#dad0e4;font-size:11px;line-height:1.35;font-weight:650}
+.p2b-status-badge.checked{border-color:#5a9b7e;color:#abebce}
+.p2b-status-badge.expired,.p2b-status-badge.review-due{border-color:#ad6972;color:#ffb6b9}
+.p2b-status-badge.short,.p2b-status-badge.unknown,.p2b-status-badge.recheck{border-color:#ad8651;color:#f7d6a2}
+.p2b-item-details{border-top:1px solid #484158;margin-top:13px;min-width:0}
+.p2b-item-details summary{cursor:pointer;min-height:45px;padding:12px 2px;color:#c7c2ff;font-size:12px;font-weight:700;list-style-position:inside;outline-offset:3px}
+.p2b-item-details summary:focus-visible{outline:2px solid #a6a9ff}
+.p2b-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:10px}
+.p2b-field{display:flex;flex-direction:column;gap:7px;min-width:0;color:#c8bcd4;font-size:12px;font-weight:650;line-height:1.4}
+.p2b-field input,.p2b-field select{font-size:14px;width:100%;max-width:100%;min-width:0;min-height:45px;padding:10px 11px;border:1px solid #70647d;border-radius:10px;color:#fff;background:#292435;color-scheme:dark}
+.p2b-field input::placeholder{color:#ac9ebc}
+.p2b-field input:focus-visible,.p2b-field select:focus-visible{outline:2px solid #abaaff;outline-offset:2px}
+.p2b-note{grid-column:1/-1}
+.p2b-detail-help{font-size:11px;line-height:1.6;color:#bcadca;margin:13px 0 8px}
+.p2b-detail-actions{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.p2b-detail-actions .btn{min-height:44px}
+.p2b-detail-actions small{font-size:11px;color:#b4a8c5;line-height:1.4}
+.p2b-custom-section,.p2b-embassy-section{margin-top:31px;border:1px solid #4b425b;background:#211d2b;border-radius:17px;padding:20px;min-width:0}
+.p2b-custom-section .section-heading,.p2b-embassy-section .section-heading{margin-top:0;flex-wrap:wrap}
+.p2b-custom-section>p,.p2b-embassy-section>p,.p2b-empty{color:#c1b7cb;font-size:12px;line-height:1.65}
+.p2b-add-form{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-top:18px}
+.p2b-add-form>.btn{grid-column:1/-1;justify-self:start}
+.p2b-embassy-section>.p2b-field{max-width:400px}
+@media(max-width:680px){
+  .p2b-status-key{grid-template-columns:1fr}
+  .p2b-custom-section,.p2b-embassy-section{padding:14px}
+  .p2b-inventory-item{padding:12px}
+  .p2b-detail-grid,.p2b-add-form{grid-template-columns:1fr}
+  .p2b-add-form>.btn{grid-column:auto;width:100%}
+}
+@media(max-width:360px){
+  .p2b-item-top{gap:8px}
+  .p2b-item-top .check-weight{max-width:34px;white-space:normal;text-align:right}
+  .p2b-detail-actions .btn{width:100%}
+}

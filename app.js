@@ -168,6 +168,8 @@
   let installPrompt = null;
   let toastTimer;
   let workerUpdateReady = false;
+  // Presentation-only choice. Do not migrate or rewrite existing version-1 records.
+  let watchLayout = 'radar';
   const app = document.getElementById('app');
   const readyCount = () => CHECKS.reduce((n,c) => n+(data.checks[c.id] ? c.pts : 0),0);
   const doneCount = () => CHECKS.filter(c => data.checks[c.id]).length;
@@ -247,53 +249,53 @@
         ${action('erase','Reset after backing up','btn-outline')}
       </div></section>`;
   }
+  function watchRiskTiles(compact=false) {
+    const risks=[
+      ['Weather','cloud','No live weather feed'],
+      ['Quake activity','alert','No live earthquake feed'],
+      ['Commute','sunrise','No train feed or timetable'],
+      ['Upcoming trip','pin','No calendar connection']
+    ];
+    return `<div class="p1a-risk-grid ${compact?'p1a-risk-compact':''}" aria-label="Unconnected monitoring sources">${risks.map(([title,ic,desc])=>`<div class="p1a-risk-tile"><span class="p1a-risk-icon">${icon(ic)}</span><div><strong>${title}</strong><small>Unknown · Not connected</small>${compact?'':`<p>${desc}</p>`}</div></div>`).join('')}</div>`;
+  }
   function watch() {
     const score=readyCount(),next=CHECKS.find(c=>!data.checks[c.id]);
-    return pageHeader('YOUR WATCHTOWER','Stay ready. Stay calm.','Your personal safety dashboard. Preparedness works now; live monitoring can be connected in a later phase.')+
-      (!data.tourDone?`<div class="card-soft setup-row" style="margin-bottom:19px"><span class="tile-icon">${icon('sunrise')}</span><div style="flex:1"><h3>Welcome — get ready in a few minutes</h3><p>Take the short tour, then add your emergency contacts and verify your kit.</p></div>${action('go','Start setup '+icon('chevron','sm'),'btn-primary','data-page="onboard"')}</div>`:'')+
-      `<div class="grid-watch">
-        <section class="card card-pad status-hero">
-          <div class="status-inner"><div class="status-copy">
-            <span class="pill">${icon('shield','sm')} <span class="dot"></span> LOCAL GUIDANCE READY</span>
-            <h2>Ready when it<br>really matters.</h2>
-            <p>Seven guided earthquake steps, your checklist and saved contacts are available here. This is <strong>not</strong> a live disaster alert.</p>
-            <div class="hero-actions">${action('go',icon('alert','sm')+' Open incident guide','btn-danger','data-page="incident"')}${action('sample',data.scenario?'Hide sample':'See sample alert','btn-outline')}</div>
-          </div><div class="radar" data-alert="${data.scenario}"><div class="radar-axis"></div><div class="radar-axis rotated"></div><div class="radar-center"></div></div></div>
-        </section>
-        <section class="card card-pad readiness-card">
-          <div><div class="card-label">YOUR READINESS</div><h2 class="card-title">One small task at a time.</h2><p class="card-descr">A score based only on items you have checked.</p></div>
-          <div class="readiness-summary">${scoreRing()}<div class="score-caption">${score===100?'All verified':'Keep building your kit'}<small>${doneCount()} of ${CHECKS.length} safety items confirmed</small></div></div>
-          <div>${next?`<p class="block-note">Next: ${safe(next.title)}</p>`:'<p class="block-note green">All items checked. Set a review date.</p>'}
-          ${action('go','Review readiness '+icon('arrow','sm'),'btn-primary btn-full','data-page="readiness"')}</div>
-        </section>
-        ${data.scenario?`<div class="sample-alert span-all"><span class="pill pill-demo">DEMONSTRATION ONLY — NOT A FORECAST</span><h3>Example: Heavy rain before your commute</h3><p>If an official heavy-rain advisory affects your train window, consider leaving early, checking the operator’s service page, or changing plans. There is no forecast or confidence calculation connected yet.</p><div class="link-list">${link('https://www.jma.go.jp/bosai/','JMA official weather')} ${action('sample','Dismiss example','btn-outline btn-sm')}</div></div>`:''}
-      </div>
-      <div class="section-heading"><h2>Quick actions</h2><small>One tap to start</small></div>
-      <div class="action-grid">
-        ${tile('incident','Emergency guide','7-step earthquake response','alert','red')}
-        ${tile('departure','Leaving somewhere?','Wallet, pass, phone and keys','bag','')}
-        ${tile('stranded','Something missing?','Work through fallback options','pin','amber')}
-        ${tile('night','Plan a night out','Decide limits before you go','moon','green')}
-      </div>
-      <div class="section-heading"><h2>Official information</h2><small>Opens external websites</small></div>
-      <div class="info-band blue">${icon('info')}<div><strong>Live hazard data is not connected.</strong> For current earthquakes, tsunami warnings or evacuation orders, use JMA and your local municipality. Do not interpret the decorative radar as a measurement.<div class="link-list" style="margin-top:12px">${link('https://www.jma.go.jp/bosai/','JMA 防災')}${link('https://www.bousai.go.jp/','Cabinet Office 防災')}</div></div></div>
-      <p class="lastline">${netOnline?'Browser reports an internet connection.':'You are currently offline.'} · ${offlineReady?'App shell cached for offline access.':'The app will cache its files when browser permissions allow.'} · Saved records stay on this device.</p>`;
+    const demo=data.scenario;
+    const visual=watchLayout==='radar'
+      ? `${demo?`<section class="p1a-prediction" aria-label="Demonstration forecast card"><div class="p1a-prediction-top"><span>TOMORROW’S COMMUTE · EXAMPLE</span><span class="p1a-demo-tag">DEMO · NO FORECAST</span></div><h3>What if heavy rain affects your route?</h3><p>This is an imaginary scenario to show how a future recommendation might look. No rain, route, probability or timing has been measured.</p><div class="p1a-prediction-evidence">${icon('info','sm')} Hypothetical situation · No live evidence</div><div class="p1a-prediction-actions">${link('https://www.jma.go.jp/bosai/','Check official JMA weather')}${action('sample','Not relevant · dismiss','btn-outline btn-sm')}</div></section>`
+        : `<section class="p1a-quiet" aria-label="Quiet layout, monitoring unavailable"><div class="p1a-radar-art" aria-hidden="true"><span class="p1a-radar-center"></span></div><h2>Nothing to preview yet.</h2><p>Quiet layout only. Weather, earthquakes and transport are <strong>not monitored</strong> by this app. Do not interpret this screen as “all clear.”</p><span class="p1a-quiet-chip">${icon('info','sm')} Live status unknown</span><div>${action('sample','Show example prediction','btn-outline')}</div></section>`}`
+      : watchLayout==='list'
+        ? `<section class="p1a-watch-list"><h2>${demo?'Example recommendation':'No active example'}</h2><p>${demo?'DEMO only · Heavy rain commute scenario, not a real prediction.':'Live alerts unavailable · This list does not show current hazard conditions.'}</p><div class="p1a-list-item"><span class="p1a-list-dot"></span><div><strong>${demo?'DEMO · Could rain disrupt your commute?':'Monitoring not connected'}</strong><small>${demo?'Hypothetical only — verify with JMA and your operator.':'Weather, earthquakes and transit are unknown.'}</small></div>${action('sample',demo?'Dismiss':'Restore demo','btn-quiet btn-sm')}</div>${watchRiskTiles(true)}</section>`
+        : `<section class="p1a-watch-cards"><div class="p1a-card-feature"><span class="p1a-demo-tag">${demo?'DEMO · NOT LIVE':'STATUS UNKNOWN'}</span><h2>${demo?'Example: Change of commute plans':'Monitoring is not connected'}</h2><p>${demo?'Imaginary heavy-rain case. No actual forecast or confidence is available.':'No hazard feeds are available. Please consult official sources.'}</p>${action('sample',demo?'Dismiss example':'Show example prediction','btn-outline btn-sm')}</div>${watchRiskTiles(true)}</section>`;
+    return `<section class="p1a-watch-page" aria-label="Watch dashboard">
+      <div class="p1a-watch-top"><div class="p1a-kicker">${icon('eye','lg')} <span>WATCH</span></div><div class="p1a-watch-time">${when()} JST</div></div>
+      ${!data.tourDone?`<div class="card-soft setup-row p1a-start-tour"><span class="tile-icon">${icon('sunrise')}</span><div style="flex:1"><h3>Set up your safety companion</h3><p>Seven short, honest steps. No live monitoring or permissions are active.</p></div>${action('go','Start setup '+icon('chevron','sm'),'btn-primary','data-page="onboard"')}</div>`:''}
+      <div class="p1a-watch-intro"><div class="p1a-watch-state ${demo?'is-demo':''}"><span class="p1a-state-dot"></span><h1>${demo?'One thing to look at':'A quieter place to prepare.'}</h1></div><p>${demo?'Illustrative advice only · Not based on current conditions.':'Local guidance is ready. Current hazards remain unknown.'}</p></div>
+      <div class="p1a-layout-selector" role="group" aria-label="Watch display layout">${[['radar','Radar'],['list','List'],['card','Cards']].map(([id,label])=>`<button type="button" data-action="watch-layout" data-layout="${id}" class="${watchLayout===id?'is-active':''}" aria-pressed="${watchLayout===id}">${label}</button>`).join('')}</div>
+      ${visual}
+      ${watchLayout==='radar'?watchRiskTiles():''}
+      <section class="p1a-readiness-strip"><div>${scoreRing()}<div><span class="p1a-section-label">YOUR READINESS · USER CHECKED</span><strong>${score===100?'10 items marked verified':`${doneCount()} / ${CHECKS.length} items verified`}</strong><small>${next?'Next to check: '+safe(next.title):'Please review your kit regularly.'}</small></div></div>${action('go','Review readiness '+icon('arrow','sm'),'btn-primary','data-page="readiness"')}</section>
+      <div class="section-heading"><h2>Do something useful now</h2><small>Manual tools, available offline</small></div>
+      <div class="action-grid">${tile('incident','Emergency guide','7-step earthquake response','alert','red')}${tile('departure','Departure check','Wallet, pass, phone and keys','bag','')}${tile('stranded','Stranded options','Try a practical fallback','pin','amber')}${tile('night','Night Out','Set limits before leaving','moon','green')}</div>
+      <div class="info-band blue p1a-official"><span>${icon('info')}</span><div><strong>Watch does not monitor hazards yet.</strong> A quiet animation or an example card does not indicate your surroundings are safe. For current warnings, use official agencies and local evacuation notices.<div class="link-list" style="margin-top:12px">${link('https://www.jma.go.jp/bosai/','JMA 防災')}${link('https://www.bousai.go.jp/','Cabinet Office 防災')}</div></div></div>
+      <p class="lastline">${netOnline?'Browser reports an internet connection.':'You are currently offline.'} · ${offlineReady?'App shell cached for offline access.':'The app will cache its files when browser permissions allow.'} · Records stay on this device.</p>
+    </section>`;
   }
   function tile(page,title,note,ic,color) {
     return `<button class="action-tile" data-action="go" data-page="${page}"><span class="tile-icon ${color}">${icon(ic)}</span><span class="tile-title">${title}</span><span class="tile-note">${note}</span></button>`;
   }
   function readiness() {
-    const remaining=CHECKS.length-doneCount();
+    const remaining=CHECKS.length-doneCount(),gaps=CHECKS.filter(c=>!data.checks[c.id]).slice(0,3);
     const groups=[...new Set(CHECKS.map(c=>c.group))];
-    return pageHeader('PREPARE','Readiness, measured honestly.','Tap an item only when you have actually checked it. Your progress stays in this browser.')+
-      `<div class="readiness-overview">
-        <div class="card card-pad readiness-score">${scoreRing(150)}<h3>${remaining?'Stay prepared':'Checklist complete'}</h3><p>${remaining?remaining+' items still to verify. Take them in any order.':'Great. Review these regularly and update whenever your situation changes.'}</p></div>
-        <div class="card card-pad"><div class="card-label">YOUR NEXT SMALL WIN</div><h2 class="card-title">${remaining? 'Close one gap today':'Maintenance matters'}</h2><p class="card-descr">A checklist cannot confirm that supplies actually exist or are usable; only you can verify that.</p><div class="separator"></div>
-        ${CHECKS.filter(c=>!data.checks[c.id]).slice(0,2).map(c=>`<button class="list-check" data-action="toggle-check" data-id="${c.id}"><span class="square">${icon('plus','sm')}</span><span><strong>${safe(c.title)} · +${c.pts} pts</strong><small>${safe(c.note)}</small></span></button>`).join('')||'<p class="green">Your emergency basics have all been checked.</p>'}
-        </div>
-      </div>
-      ${groups.map(g=>`<section class="subsection"><div class="section-heading"><h2>${safe(g)}</h2><small>Verify personally</small></div><div class="checklist-list">${CHECKS.filter(c=>c.group===g).map(c=>`<button class="check-row ${data.checks[c.id]?'is-done':''}" data-action="toggle-check" data-id="${c.id}" aria-pressed="${!!data.checks[c.id]}"><span class="check-control">${icon('check','sm')}</span><span class="check-copy"><strong>${safe(c.title)}</strong><p>${safe(c.note)}</p></span><span class="check-weight">${c.pts} pts</span></button>`).join('')}</div></section>`).join('')}
-      <div class="section-heading"><h2>Personal details</h2></div><div class="info-band blue">${icon('pin')}<div>A saved shelter and verified contacts are useful during a disruption. You can update them from Settings. ${action('go','Open settings','btn-quiet btn-sm','data-page="settings"')}</div></div>`;
+    return `<section class="p1a-readiness-page">${pageHeader('READINESS · 備え','Your readiness gaps.','Each point comes from a checklist item you personally marked. A tick is not independent verification.')}
+      <div class="p1a-readiness-overview">${scoreRing(150)}<div><h2>${remaining?`${remaining} things to check`:'All 10 items marked'}</h2><p>${remaining?'Start with these three gaps. Review the complete inventory below.':'Your manual checklist is complete; check supplies and expiry dates regularly.'}</p><span class="p1a-quiet-chip">${doneCount()} of ${CHECKS.length} manually verified</span></div></div>
+      <div class="p1a-gap-heading"><span class="p1a-section-label">${remaining?'THREE NEXT GAPS':'MAINTENANCE'}</span><small>Only mark an item when you check it</small></div>
+      <div class="p1a-gap-grid">${gaps.map(c=>`<article class="p1a-gap-card"><div><strong>${safe(c.title)}</strong><p>${safe(c.note)}</p></div><button class="p1a-gap-action" type="button" data-action="toggle-check" data-id="${c.id}" aria-label="Mark ${safe(c.title)} verified after checking it">Mark verified ${icon('arrow','sm')}</button></article>`).join('')||'<div class="info-band blue">No unchecked items. Revisit your supplies periodically; tap any checked row below to update its status.</div>'}</div>
+      <div class="p1a-gap-heading"><span class="p1a-section-label">INVENTORY</span><small>10 checklist items · grouped by purpose</small></div>
+      <div class="p1a-inventory-summary">${groups.map(g=>{const entries=CHECKS.filter(c=>c.group===g),count=entries.filter(c=>data.checks[c.id]).length;return `<div><span>${safe(g)}</span><strong>${count} / ${entries.length} checked</strong></div>`;}).join('')}</div>
+      ${groups.map(g=>`<section class="subsection"><div class="section-heading"><h2>${safe(g)}</h2><small>Tap to confirm or undo</small></div><div class="checklist-list">${CHECKS.filter(c=>c.group===g).map(c=>`<button class="check-row ${data.checks[c.id]?'is-done':''}" data-action="toggle-check" data-id="${c.id}" aria-pressed="${!!data.checks[c.id]}"><span class="check-control">${icon('check','sm')}</span><span class="check-copy"><strong>${safe(c.title)}</strong><p>${safe(c.note)}</p></span><span class="check-weight">${c.pts} pts</span></button>`).join('')}</div></section>`).join('')}
+      <div class="section-heading"><h2>Personal details</h2></div><div class="info-band blue">${icon('pin')}<div>Save your shelter and emergency contacts from Settings. These are user-entered, not independently verified. ${action('go','Open settings','btn-quiet btn-sm','data-page="settings"')}</div></div>
+      </section>`;
   }
   function incident() {
     const i=data.incident,step=INC[i.step-1],total=INC.length;
@@ -413,14 +415,18 @@
   }
   function onboarding() {
     const index=data.tourStep,t=TOUR[index];
-    return `<div class="onboard-stage card"><div class="eyebrow">SETUP · ${index+1} / ${TOUR.length} <span style="float:right">${t.jp}</span></div><div class="onboarding-steps">${TOUR.map((_,i)=>`<span class="${i<=index?'past':''}"></span>`).join('')}</div>
-      <div class="tile-icon" style="width:57px;height:57px;margin-top:29px;background:#2e3d71;color:#c7d0ff">${icon(index===6?'shield':index===3?'pin':'eye','lg')}</div>
-      <h1>${safe(t.title)}</h1><p class="intro">${safe(t.body)}</p>
-      <ul class="onboard-points" style="padding:0">${t.points.map(([l,r])=>`<li><span>${safe(l)}</span><span>${safe(r)}</span></li>`).join('')}</ul>
-      ${index===6?`<div class="setup-privacy"><strong>Your privacy choices</strong><br>There is no account or cloud service. You control which contacts or places are saved locally, and can export or erase the records from Settings.</div>`:''}
-      <div class="form-actions" style="margin-top:30px">${action('tour-next',index===TOUR.length-1?'Finish setup '+icon('check','sm'):'Continue '+icon('arrow','sm'),'btn-primary btn-lg')}${index? action('tour-prev','Back','btn-outline'):''}</div>
-      <div class="form-actions">${action('tour-skip','Explore dashboard','btn-quiet')}</div>
-    </div>`;
+    const stageIcons=['eye','bag','phone','pin','wallet','download','shield'];
+    return `<section class="p1a-onboard" aria-label="Setup, step ${index+1} of ${TOUR.length}">
+      <div class="p1a-onboard-header"><div class="p1a-kicker">${icon('eye')} <span>YOUR SAFETY COMPANION</span></div><span>${index+1} / ${TOUR.length} · ${safe(t.jp)}</span></div>
+      <div class="p1a-onboard-progress" role="progressbar" aria-label="Onboarding progress" aria-valuenow="${index+1}" aria-valuemin="1" aria-valuemax="${TOUR.length}">${TOUR.map((_,i)=>`<span class="${i<=index?'is-filled':''}"></span>`).join('')}</div>
+      <div class="p1a-onboard-icon">${icon(stageIcons[index],'lg')}</div>
+      <h1>${safe(t.title)}</h1><p class="p1a-onboard-lead">${safe(t.body)}</p>
+      <ul class="p1a-onboard-points">${t.points.map(([l,r])=>`<li><span class="p1a-onboard-bullet" aria-hidden="true"></span><strong>${safe(l)}</strong><small>${safe(r)}</small></li>`).join('')}</ul>
+      <div class="p1a-onboard-note">${icon('info','sm')} <div><strong>Why this matters</strong><p>${index===6?'You decide what to save or share. No services or device permissions are connected in this version.':'This step explains a manual feature. It does not grant permissions, activate background monitoring or send information.'}</p></div></div>
+      <div class="p1a-onboard-controls">${action('tour-next',index===TOUR.length-1?'Finish setup '+icon('check','sm'):'Continue '+icon('arrow','sm'),'btn-primary btn-lg btn-full')}
+        <div class="p1a-onboard-secondary">${index?action('tour-prev','← Back','btn-quiet'): '<span></span>'}${index===TOUR.length-1?'':action('tour-skip-step','Skip this step','btn-quiet')}${action('tour-skip','Exit tour','btn-quiet')}</div>
+      </div>
+    </section>`;
   }
   function render() {
     const pages={watch,readiness,incident,departure,stranded,night,log:logPage,settings,reflection,onboard:onboarding};
@@ -454,6 +460,10 @@
     }
     if(name==='go') return go(button.dataset.page);
     if(name==='sample') {data.scenario=!data.scenario;return update();}
+    if(name==='watch-layout') {
+      if(['radar','list','card'].includes(button.dataset.layout))watchLayout=button.dataset.layout;
+      return render();
+    }
     if(name==='toggle-check') {data.checks[id]=!data.checks[id];return update();}
     if(name==='incident-step'){data.incident.active=true;data.incident.step=Number(button.dataset.step)||1;return update();}
     if(name==='incident-next'){data.incident.active=true;data.incident.step=Math.min(7,data.incident.step+1);return update();}
@@ -562,6 +572,7 @@
       data.tourDone=true;data.tourStep=0;go('watch');return toast('Setup tour complete. Welcome.');
     }
     if(name==='tour-prev'){data.tourStep=Math.max(0,data.tourStep-1);return update();}
+    if(name==='tour-skip-step'){data.tourStep=Math.min(TOUR.length-1,data.tourStep+1);return update();}
     if(name==='tour-skip'){data.tourDone=true;data.tourStep=0;return go('watch');}
   }
   document.addEventListener('click', event=>{

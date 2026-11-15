@@ -33,12 +33,12 @@ Status notation: `[x]` completed in the named work branch; `[ ]` pending. A chec
 
 ## Phase 1A — Restore Watch, onboarding and readiness UI
 
-- [ ] **P1A-01** Create screenshot-by-screenshot visual comparison for `SS-01`, `SS-02`, `SS-08` against live responsive views, with 412×892 mobile as reference (`UX-01,UX-02`).
-- [ ] **P1A-02** Rebuild Watch **prediction-card** and **quiet-state** layouts as explicitly labeled **design/demo states** until Phase 7 provides real data (`WA-01,WA-07,WA-09`).
-- [ ] **P1A-03** Restore optional Watch visual variants (radar/list/card), risk tiles and dismiss/restore state without suggesting decorative metrics are measurements (`WA-06,WA-08,WA-10`).
-- [ ] **P1A-04** Restore seven onboarding screens visually, preserve truthful labels for unsupported permissions, and implement per-screen Back/Skip semantics (`OB-01–03,OB-10,OB-11`).
-- [ ] **P1A-05** Improve readiness ring/gap cards/inventory layout while retaining *real checked items*, not a fixed fake score (`RD-01,RD-02,RD-11,RD-12`).
-- [ ] **P1A-06** Check phone safe areas, touch sizes, Japanese text wrapping, contrast, mobile bottom nav and existing desktop sidebar (`UX-01–03,UX-09–13`).
+- [ ] **P1A-01** Screenshot comparison documented in [PHASE1A_IMPLEMENTATION_REPORT.md](PHASE1A_IMPLEMENTATION_REPORT.md) for `SS-01`, `SS-02`, `SS-08`; final comparison of **new** 412×892 screenshots awaits CI visual artifacts/owner acceptance (`UX-01,UX-02`).
+- [x] **P1A-02** Implemented Watch **prediction-card** and **quiet-state** layouts as explicitly labeled **design/demo states** until Phase 7 provides real data (`WA-01,WA-07,WA-09`).
+- [x] **P1A-03** Implemented radar/list/card visual variants, four unknown-status tiles and dismiss/restore state without suggesting decorative metrics are measurements (`WA-06,WA-08,WA-10`).
+- [x] **P1A-04** Restored seven onboarding screens visually, preserved truthful labels for unsupported permissions, and implemented per-screen Back/Skip/Exit semantics (`OB-01–03,OB-10,OB-11`).
+- [x] **P1A-05** Improved readiness ring/three gap cards/inventory overview, retaining *real checked items*, not a fixed fake score (`RD-01,RD-02,RD-11,RD-12`).
+- [ ] **P1A-06** Responsive CSS, accessible controls and dedicated 320/375/412 px CI checks added; final physical-device safe-area/Japanese-wrap/contrast acceptance remains (`UX-01–03,UX-09–13`).
 
 **Exit gate:** Accessible mobile screenshots at target widths match intended hierarchy; all risk/confidence/mapping examples visibly say **DEMO**; no “All clear” safety claim without a real verified source. No functional regression on stored records or offline opening.
 

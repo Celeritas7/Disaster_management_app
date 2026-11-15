@@ -121,7 +121,7 @@ test('Phase 3A is a cache-owned, offline asset with unchanged v1 storage key',()
   assert.match(html,/href="\.\/phase3a\.css"/);
   assert.match(css,/\.p3a-help/);
   assert.match(css,/@media\(max-width:420px\)/);
-  assert.match(sw,/disaster-management-app-v11/);
+  assert.match(sw,/disaster-management-app-v12/);
   assert.match(sw,/\.\/phase3a\.css/);
   assert.match(sw,/OWNED_CACHE/);
   assert.match(js,/const KEY = 'disaster-management:v1'/);

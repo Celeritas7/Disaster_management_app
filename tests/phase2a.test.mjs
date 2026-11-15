@@ -170,7 +170,7 @@ test('New styles and current versioned cache include the Phase 2A UI without cha
   assert.match(css,/\.p2a-contact-card/);
   assert.match(css,/@media\(max-width:360px\)/);
   assert.match(html,/href="\.\/phase2a\.css"/);
-  assert.match(sw,/disaster-management-app-v11/);
+  assert.match(sw,/disaster-management-app-v12/);
   assert.match(sw,/\.\/phase2a\.css/);
   assert.match(js,/disaster-management:v1/);
   assert.doesNotMatch(js,/localStorage\.clear\(/);

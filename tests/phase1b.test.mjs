@@ -136,6 +136,6 @@ test('Phase 1B CSS and shell files are cached together for offline use',()=>{
   assert.match(html,/href="\.\/phase1b\.css"/);
   assert.match(css,/\.p1b-incident/);
   assert.match(css,/@media\(max-width:680px\)/);
-  assert.match(worker,/disaster-management-app-v11/);
+  assert.match(worker,/disaster-management-app-v12/);
   assert.match(worker,/\.\/phase1b\.css/);
 });

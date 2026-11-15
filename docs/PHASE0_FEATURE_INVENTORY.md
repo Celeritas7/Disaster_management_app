@@ -151,7 +151,7 @@ The inventory groups each observable screen, choice, variant, data capability, o
 | IN-21 | “Evacuate — start route” walking navigation | `H:345` | No route; prototype merely advanced a step | M | 8 |
 | IN-22 | Water/kit/charger/neighbors checklist | `H:645–648` | Four safety check items, adapted for safety | I | 3 |
 | IN-23 | Official information and rumor/trains guidance | `H:648–649` | JMA/NHK links, municipality reminder; no train status | P | 3,7 |
-| IN-24 | Damage photos and landlord/employer follow-up | `H:649–650` | Checklist guidance; no in-app photo or contact-action links | P | 3 |
+| IN-24 | Damage photos and landlord/employer follow-up | `H:649–650` | Phase 3C: optional locally compressed, user-selected photos/notes with private archive and backup; existing manual landlord/employer checklist reminders. No validated direct contact-action links; images are not official assessments | P | 3 |
 | IN-25 | Embassy check-in/registration as explicit task | `H:649–650` | Not in current step 7 checklist; may be user-specific | M | 3 |
 | IN-26 | “Help”, “Skip”, “Done” footer actions | `H:349–356` | Previous/Continue/Leave guide; no context-specific Help | P | 1B,3 |
 | IN-27 | Finish incident and save local record | `H:649–651` | Saves event/note; resets incident flow | I | 3 |

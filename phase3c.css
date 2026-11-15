@@ -1,0 +1,50 @@
+/* Phase 3C — offline, explicitly supplied, unverified incident evidence. */
+.p3c-evidence{min-width:0;background:#161b27;border:1px solid #778599;border-radius:17px;color:#f7f9ff;padding:clamp(16px,2.4vw,23px);margin:23px 0;display:grid;gap:16px}
+.p3c-evidence-heading,.p3c-records-heading,.p3c-draft-title,.p3c-record-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.p3c-evidence-heading h2{margin:7px 0 0;font-size:21px;line-height:1.3;color:#fff}
+.p3c-local{border:1px solid #83caac;border-radius:99px;padding:7px 9px;color:#c9fbe5;font-size:10px;font-weight:800;letter-spacing:.05em}
+.p3c-evidence>p,.p3c-help,.p3c-storage-note,.p3c-navigation{font-size:13px;color:#e1e8f6;line-height:1.7;margin:0;overflow-wrap:anywhere}
+.p3c-evidence-warning{border-left:4px solid #f3bd7b;background:#382c21;border-radius:9px;padding:12px;display:flex;align-items:flex-start;gap:11px}
+.p3c-evidence-warning svg{flex:none;margin-top:3px}
+.p3c-evidence-warning p{margin:0;color:#fff1df;font-size:13px;line-height:1.65}
+.p3c-evidence-warning p span[lang="ja"]{display:block;margin-top:6px;color:#ffe4c3}
+.p3c-draft{background:#1e2c3e;border:1px solid #7c9bb5;border-radius:13px;padding:16px;display:grid;gap:12px;min-width:0}
+.p3c-draft-title strong{font-size:16px;color:#fff}
+.p3c-draft-title small{font-size:12px;color:#dbe8f9}
+.p3c-label{font-size:14px;font-weight:720;color:#fff}
+.p3c-draft textarea{box-sizing:border-box;display:block;width:100%;min-height:100px;max-width:100%;padding:12px;border:1px solid #c3d0e5;border-radius:10px;background:#111c2e;color:#fff;font:inherit;font-size:15px;line-height:1.55}
+.p3c-draft textarea::placeholder{color:#c7d2df}
+.p3c-photo-input{display:grid;gap:9px;border:1px dashed #b5c4d9;border-radius:10px;padding:12px;max-width:100%;min-width:0;color:#f8f6ff}
+.p3c-photo-input span{display:flex;align-items:center;gap:7px;font-size:14px;font-weight:720}
+.p3c-photo-input input{max-width:100%;color:#f1f7ff;font-size:13px;min-width:0}
+.p3c-photo-input input::file-selector-button{border:1px solid #bccced;border-radius:7px;background:#293b56;color:#fff;padding:10px;margin-right:10px;cursor:pointer;min-height:42px}
+.p3c-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,125px),1fr));gap:11px;min-width:0}
+.p3c-gallery figure{background:#12202f;border:1px solid #6f879e;border-radius:10px;overflow:hidden;margin:0;min-width:0}
+.p3c-gallery img{display:block;max-width:100%;width:100%;height:125px;object-fit:contain;background:#0b101b}
+.p3c-gallery figcaption{display:flex;align-items:center;justify-content:space-between;gap:5px;padding:8px;flex-wrap:wrap;color:#e6eaf4;font-size:11px}
+.p3c-gallery .btn{min-height:40px}
+.p3c-draft-actions{display:flex;gap:10px;flex-wrap:wrap}
+.p3c-draft-actions .btn{min-height:49px;white-space:normal}
+.p3c-storage-note{border-top:1px solid #708197;padding-top:10px}
+.p3c-storage-note code{overflow-wrap:anywhere}
+.p3c-records-heading{align-items:center}
+.p3c-records-heading h3{margin:0;font-size:17px;color:#fff}
+.p3c-records-heading small{font-size:12px;color:#d4dfee}
+.p3c-records{display:grid;gap:12px}
+.p3c-record{background:#202733;border:1px solid #727e91;border-radius:12px;padding:14px;display:grid;gap:11px;min-width:0}
+.p3c-record-header strong{font-size:14px;color:#fff}
+.p3c-record-header time{display:block;margin-top:4px;font-size:12px;color:#dce7f7}
+.p3c-record .btn{min-height:43px}
+.p3c-record-note{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;color:#f2f5fc;line-height:1.6;font-size:14px}
+.p3c-record>small{font-size:12px;color:#dbe6f3}
+.p3c-empty{border:1px dashed #68788a;padding:16px;border-radius:9px;margin:0;color:#dbe5f5;font-size:13px}
+.p3c-evidence :is(button,textarea,input):focus-visible{outline:3px solid #ffe0a1;outline-offset:3px}
+.p3c-evidence .btn[disabled]{opacity:.55}
+@media(max-width:425px){
+  .p3c-evidence{padding:13px;margin:18px 0}
+  .p3c-draft{padding:12px}
+  .p3c-draft-actions .btn{width:100%}
+  .p3c-record-header .btn{width:100%}
+  .p3c-photo-input input::file-selector-button{display:block;margin-bottom:7px}
+}
+@media(prefers-reduced-motion:reduce){.p3c-evidence *{animation:none!important;transition:none!important}}

@@ -91,14 +91,16 @@ Status notation: `[x]` completed in the named work branch; `[ ]` pending. A chec
 - [x] **P3-04 · Phase 3B code** Decided on **manual one-at-a-time composition** in saved recipient priority order, with a persisted interrupted-request reconciliation gate. Automatic or bulk sending and delivery confirmation are not supported by the PWA; no “sent to all” claim (`IN-14–17`).
 - [ ] **P3-05 · Phase 3A partial** Preserved `tel:119`, `tel:110`, `tel:171`, added manual-dial fallback and accurately labeled NTT's conditional 171 availability. Automated Chromium checks are planned; **physical Android/iOS dialer testing remains pending** (`IN-03–05,IN-17`).
 - [x] **P3-06 · Phase 3A code** Added manual simplified incident display, practical low-power suggestions, honest offline/online text; no battery estimates, automatic battery saver or unsupported notifications (`IN-06–08`).
-- [ ] **P3-07** Capture optional user-supplied follow-up evidence/photos safely, without confusing an attached image with official damage assessment (`IN-22–27`).
-- [ ] **P3-08** Rehearse simulated scenarios: quake at home, damaged building, no internet, no contacts, interrupted flow, urgent 119.
+- [x] **P3-07 · Phase 3C code** Added optional local notes and re-encoded photo attachments, persistent private drafts, saved evidence archive, deletion controls and backup import/export support. Content remains unverified, not submitted or officially assessed. Old `disaster-management:v1` records remain compatible. Physical-device acceptance remains pending (`IN-24`, part of `IN-27`).
+- [x] **P3-08 · Phase 3C automated rehearsal** Added Node and Chromium scenarios for quake at home, unsafe building, offline startup, no contacts, interrupted incident/draft, and a non-dialing `119` link check. Actual emergency calls are **never placed by tests**; physical Android/iOS and owner rehearsal remain separate gates.
 
 **Exit gate:** Offline response is fast and never blocks emergency access. Data-only proof of sending is not inferred from opening an SMS composer. Tsunami warning defaults to **unknown**, never “no warning.”
 
 **Phase 3A implementation report:** [PHASE3A_IMPLEMENTATION_REPORT.md](PHASE3A_IMPLEMENTATION_REPORT.md). Phase 3A deferred SMS composition (`P3-03/04`) to Phase 3B and follow-up evidence (`P3-07`), scenario rehearsal (`P3-08`) and physical Android/iOS dialer checks to later gates. No cloud connection or deployment is part of this phase.
 
 **Phase 3B implementation report:** [PHASE3B_IMPLEMENTATION_REPORT.md](PHASE3B_IMPLEMENTATION_REPORT.md). The Phase 3B code addresses `P3-03/04` on a separate review branch only; CI Chromium, owner review and physical Android/iOS handoff/delivery-unknown checks remain release gates. Phase 3C targets `P3-07/08` and the outstanding physical-device acceptance portion of `P3-05`.
+
+**Phase 3C implementation report:** [PHASE3C_IMPLEMENTATION_REPORT.md](PHASE3C_IMPLEMENTATION_REPORT.md). `P3-07/08` are checked for implemented code/tests in a reviewable work branch; **this does not imply deployment or device acceptance**. The mobile/dialer/SMS portion of `P3-05` is still unchecked and must be validated separately without placing test emergency calls. Follow-up recipient action links, real-world official damage assessment and automatic sending remain out of scope.
 
 ## Phase 4 — Departure and stranded assistance
 

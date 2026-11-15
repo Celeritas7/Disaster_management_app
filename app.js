@@ -319,7 +319,7 @@
       <div class="p1b-emergency-bar" role="note">${icon('alert')}<span>Protect yourself during shaking. Emergency calls open your phone dialer: <a href="tel:119">119 · Ambulance / fire</a> or <a href="tel:110">110 · Police</a>. Current hazards and routes are not monitored.</span></div>
       ${incidentBody(step)}
       <div class="p1b-incident-controls">${action('incident-prev','← Previous step','btn-outline',i.step===1?'disabled':'')}${action(i.step===7?'finish-incident':'incident-next',i.step===7?'Save review to log':'Continue to step '+(i.step+1)+' →','btn-primary')}${action('go','Leave guide (progress saved)','btn-quiet','data-page="watch"')}</div>
-      <p class="p1b-incident-footnote">Step position does not mean tasks are done. Manual progress is saved on this device. ${netOnline?'Online; live alerts are not connected.':'Offline; use locally available official information and emergency services.'}</p>
+      <p class="p1b-incident-footnote">Step position does not mean tasks are done. Manual progress is saved on this device. ${netOnline?'Browser reports connected; live alerts are not connected.':'Browser reports offline; use locally available official information and emergency services.'}</p>
     </div>`;
   }
   function incidentBody(step) {

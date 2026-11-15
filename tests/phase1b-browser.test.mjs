@@ -98,8 +98,14 @@ test('Phase 1B screens, recovery, large controls and offline reload work on mobi
   await context.setOffline(true);
   await page.reload({waitUntil:'domcontentloaded',timeout:15000});
   await page.getByText('ITEM 4 OF 4').waitFor();
-  const offline=await page.evaluate(()=>({online:navigator.onLine,progress:JSON.parse(localStorage.getItem('disaster-management:v1')).incident}));
-  assert.equal(offline.online,false);
+  const offline=await page.evaluate(async()=>{
+    let networkUnavailable=false;
+    try{await fetch('./uncached-network-probe.txt',{cache:'no-store'});}
+    catch{networkUnavailable=true;}
+    return {networkUnavailable,caches:await caches.keys(),progress:JSON.parse(localStorage.getItem('disaster-management:v1')).incident};
+  });
+  assert.equal(offline.networkUnavailable,true,'uncached network requests must fail while offline');
+  assert.ok(offline.caches.includes('disaster-management-app-v5'));
   assert.equal(offline.progress.outcomes['2']['2'],'skip');
   await page.getByRole('button',{name:'Show full checklist'}).click();
   await page.getByText('Can’t', {exact:true}).waitFor();

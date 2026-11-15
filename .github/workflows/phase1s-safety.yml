@@ -37,16 +37,19 @@ jobs:
           DMA_SCREENSHOT_DIR: artifacts/phase1b
         run: node --test tests/phase1b-browser.test.mjs
       - name: Run Phase 1C Night Out, after-action, log and Settings browser checks
+        if: always()
         env:
           REQUIRE_BROWSER: '1'
           DMA_SCREENSHOT_DIR: artifacts/phase1c
         run: node --test tests/phase1c-browser.test.mjs
       - name: Run Phase 2A places, contacts and SMS-confirmation browser checks
+        if: always()
         env:
           REQUIRE_BROWSER: '1'
           DMA_SCREENSHOT_DIR: artifacts/phase2a
         run: node --test tests/phase2a-browser.test.mjs
       - name: Run Phase 2B legacy inventory, mobile and offline browser checks
+        if: always()
         env:
           REQUIRE_BROWSER: '1'
           DMA_SCREENSHOT_DIR: artifacts/phase2b

@@ -117,7 +117,9 @@ test('Phase 2B inventory, legacy checks, real mobile controls, backup and offlin
   await page.locator('.bottom-nav [data-page="readiness"]').click();
   assert.match(await page.locator('.p2b-custom-section').innerText(),/Prescription glasses/);
 
-  await page.waitForFunction(()=>!!navigator.serviceWorker?.controller,{timeout:20000});
+  await page.evaluate(()=>navigator.serviceWorker.ready);
+  if(!await page.evaluate(()=>!!navigator.serviceWorker.controller))await page.reload({waitUntil:'domcontentloaded'});
+  await page.waitForFunction(()=>!!navigator.serviceWorker?.controller,null,{timeout:20000});
   await context.setOffline(true);
   await page.reload({waitUntil:'domcontentloaded',timeout:15000});
   await page.getByRole('heading',{name:'A kit you can actually review.'}).waitFor();

@@ -50,7 +50,7 @@ The GitHub Actions workflow installs Chromium and runs each browser test with `R
 
 ## Rollback
 
-Do **not** erase browser storage as a rollback step. A build rollback should restore earlier `main` app files and its service worker, without rewriting the `disaster-management:v1` record. The previous build ignores additional `readiness` metadata; Phase 2B can read it again when reinstalled. Export a JSON backup before rolling back and repeat old-record import tests. The service worker deletes only caches starting with its own `disaster-management-app-` prefix, never those of other apps.
+Do **not** erase browser storage as a rollback step. A build rollback restores earlier `main` app files and its service worker, but **an older build can drop the new Phase 2B inventory metadata when it next saves** because its historical normalizer does not understand those fields. Export and retain a full Phase 2B JSON backup *before* any rollback, do not make new edits in the older build unless necessary, and restore the backup after returning to Phase 2B only after checking version compatibility. Retest existing records after rollback and restoration. The service worker deletes only caches starting with its own `disaster-management-app-` prefix, never those of other apps.
 
 ## Deferred / explicitly not in Phase 2B
 

@@ -112,7 +112,7 @@ test('Settings groups sources, privacy, limits, offline, contacts, and recovery 
   assert.match(h.app.innerHTML,/without encryption/);
   assert.match(h.app.innerHTML,/No current official feed or timestamps/);
   assert.match(h.app.innerHTML,/No contacts saved/);
-  assert.match(h.app.innerHTML,/Import backup/);
+  assert.match(h.app.innerHTML,/Choose backup to preview/);
   assert.doesNotMatch(h.app.innerHTML,/Akatsuki connected|live predictions active|verified safe route/);
   h.field('home-address','東京');h.field('office-address','Office');h.field('shelter-name','School');h.field('safe-place','Meetup');
   h.click('save-profile');
@@ -129,7 +129,7 @@ test('Phase 1C has scoped responsive CSS and its own offline cache asset',()=>{
   assert.match(css,/@media\(max-width:420px\)/);
   assert.match(css,/@media\(max-width:680px\)/);
   assert.match(html,/href="\.\/phase1c\.css"/);
-  assert.match(sw,/disaster-management-app-v8/);
+  assert.match(sw,/disaster-management-app-v9/);
   assert.match(sw,/\.\/phase2a\.css/);
   assert.match(sw,/\.\/phase1c\.css/);
   assert.match(sw,/OWNED_CACHE = \/\^disaster-management-app-v/);

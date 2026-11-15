@@ -13,8 +13,8 @@ catch { /* Playwright is optional for this static, dependency-free web app. */ }
 const root = process.env.DMA_TEST_ROOT || join(dirname(fileURLToPath(import.meta.url)), '..');
 const prefix = '/Disaster_management_app/';
 const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'};
-const allowed = new Set(['index.html','app.js','service-worker.js','styles.css','phase1b.css','phase1c.css','phase2a.css','phase2b.css','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
-let swRevision = 'v8';
+const allowed = new Set(['index.html','app.js','service-worker.js','styles.css','phase1b.css','phase1c.css','phase2a.css','phase2b.css','phase2c.css','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
+let swRevision = 'v9';
 
 test('a real Chromium install preserves other apps and local data across offline and worker upgrades', {timeout:90000}, async t => {
   if (!chromium) {
@@ -27,8 +27,8 @@ test('a real Chromium install preserves other apps and local data across offline
     if (!allowed.has(name)) {res.writeHead(404);res.end('Not found');return;}
     try {
       let body = readFileSync(join(root,name));
-      if(name === 'service-worker.js' && swRevision === 'v9')
-        body = Buffer.from(body.toString('utf8').replace("disaster-management-app-v8'", "disaster-management-app-v9'"));
+      if(name === 'service-worker.js' && swRevision === 'v10')
+        body = Buffer.from(body.toString('utf8').replace("disaster-management-app-v9'", "disaster-management-app-v10'"));
       const ext = name === 'manifest.webmanifest' ? '.webmanifest' : name.slice(name.lastIndexOf('.'));
       res.writeHead(200,{'Content-Type':types[ext]||'application/octet-stream','Cache-Control':'no-store'});
       res.end(body);
@@ -73,18 +73,18 @@ test('a real Chromium install preserves other apps and local data across offline
 
   // A revised worker must update its shell without disturbing an active form.
   await page.locator('#home-address').fill('text not yet saved');
-  swRevision = 'v9';
+  swRevision = 'v10';
   await page.evaluate(async()=>{const reg=await navigator.serviceWorker.getRegistration();await reg.update();});
   await page.getByRole('button',{name:'Reload to update'}).waitFor({timeout:15000});
   assert.equal(await page.locator('#home-address').inputValue(),'text not yet saved');
   // Worker activation/cache cleanup can finish after the controller event.
   await page.waitForFunction(async()=>{
     const names=await caches.keys();
-    return names.includes('disaster-management-app-v9') && !names.includes('disaster-management-app-v8');
+    return names.includes('disaster-management-app-v10') && !names.includes('disaster-management-app-v9');
   },null,{timeout:8000});
   let keys = await page.evaluate(()=>caches.keys());
   assert.ok(keys.includes('kg-chart-offline-v1'));
-  assert.ok(keys.includes('disaster-management-app-v9'));
+  assert.ok(keys.includes('disaster-management-app-v10'));
   // An in-flight old worker can briefly reopen its own old cache; the wait
   // above verifies that the new worker did clean it during activation.
 
@@ -116,6 +116,7 @@ test('a real Chromium install preserves other apps and local data across offline
   await page.locator('#import-recovery-json').setInputFiles({
     name:'compatible-backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(old))
   });
+  await page.getByRole('button',{name:'Replace records with this backup'}).click();
   await page.getByRole('button',{name:'Settings & contacts'}).click();
   assert.equal(await page.locator('#home-address').inputValue(),'Saitama safe home');
   assert.ok(!(await page.locator('body').innerText()).includes('Saved records need recovery'));

@@ -44,11 +44,13 @@ Status notation: `[x]` completed in the named work branch; `[ ]` pending. A chec
 
 ## Phase 1B — Restore high-urgency/stranded layouts
 
-- [ ] **P1B-01** Restore departure lock-screen-style **in-app preview** from `SS-03`, with real OS notification separately deferred to Phase 4 (`DP-01–03,DP-07`).
-- [ ] **P1B-02** Restore one-next-action Stranded composition from `SS-04`, with real distances/prices withheld until verified (`ST-01,ST-10`).
-- [ ] **P1B-03** Restore incident's high-contrast/large-control design and persistent segmented progress (`SS-05–07`, `UX-10,UX-12,IN-01,IN-02,IN-06`).
-- [ ] **P1B-04** Implement optional per-item checklist mode and explicit **Can't/Skip** semantics, including resuming progress (`IN-09–11,IN-26`).
-- [ ] **P1B-05** Keep emergency 119/110 buttons real `tel:` links; retain warning that these open the user's dialer, not an in-app dispatcher (`IN-03–05`).
+- [x] **P1B-01** Implemented departure lock-screen-style **manual in-app preview**, four interactive item tiles, explicit All with me / Something's missing / Dismiss actions (`SS-03`, `DP-01–03,DP-07`). Real OS notifications remain Phase 4.
+- [x] **P1B-02** Implemented one prominent NEXT ACTION card, ordered fallbacks, and honest unknown/unverified distance, walk, and cost fields (`SS-04`, `ST-01,ST-10`).
+- [x] **P1B-03** Implemented black high-contrast incident shell, large emergency call controls, seven segmented navigable stages, bilingual headlines, and manual progress continuity (`SS-05–07`, `UX-10,UX-12,IN-01,IN-02,IN-06`).
+- [x] **P1B-04** Implemented persistent optional one-at-a-time mode, Done / Can't / Skip outcomes, Back/review controls, and an unfinished-items summary without claiming skipped actions were done (`IN-09–11,IN-26`).
+- [x] **P1B-05** Preserved direct `tel:119` / `tel:110` anchors and clear dialer/no automatic call warning (`IN-03–05`).
+
+**Phase 1B implementation report:** [PHASE1B_IMPLEMENTATION_REPORT.md](PHASE1B_IMPLEMENTATION_REPORT.md). These checks indicate code implemented in the review branch; **CI/browser and physical-device acceptance are separate release gates**, not implied by the checkmarks.
 
 **Exit gate:** Emergency screens remain usable offline and under large font/accessibility settings. No fictitious JMA “no warning”, cached map, geofence event, station distance, or completed SMS is shown as fact.
 

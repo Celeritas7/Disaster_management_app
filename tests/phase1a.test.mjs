@@ -97,6 +97,6 @@ test('Phase 1A remains responsive and publishes a new owned offline shell revisi
   assert.match(css,/@media\(max-width:680px\)/);
   assert.match(css,/@media\(max-width:375px\)/);
   const worker=readFileSync(join(root,'service-worker.js'),'utf8');
-  assert.match(worker,/disaster-management-app-v4/);
+  assert.match(worker,/disaster-management-app-v5/);
   assert.match(worker,/OWNED_CACHE = \/\^disaster-management-app-v/);
 });

@@ -65,6 +65,7 @@ test('Phase 1B screens, recovery, large controls and offline reload work on mobi
   await page.getByText('3 not confirmed').waitFor();
   await page.getByRole('button',{name:/Something’s missing/}).click();
   await page.getByText('NEXT ACTION · 1 OF 5').waitFor();
+  assert.ok((await page.locator('.p1b-stranded-bars button').first().boundingBox()).height>=44);
   await picture('stranded-412.png');
   for(const width of [320,375,412,768])await noOverflow(width);
   await page.setViewportSize({width:412,height:892});
@@ -73,6 +74,7 @@ test('Phase 1B screens, recovery, large controls and offline reload work on mobi
 
   await page.locator('.mobile-top [data-page="incident"]').click();
   await page.getByRole('heading',{name:'Are you hurt?'}).waitFor();
+  assert.ok((await page.locator('.p1b-incident-segment').first().boundingBox()).height>=44);
   assert.equal(await page.locator('a.p1b-call-primary').getAttribute('href'),'tel:119');
   assert.equal(await page.locator('a.p1b-call-secondary').getAttribute('href'),'tel:110');
   await picture('incident-call-412.png');

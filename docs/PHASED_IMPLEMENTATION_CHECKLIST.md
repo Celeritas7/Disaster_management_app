@@ -70,9 +70,9 @@ Status notation: `[x]` completed in the named work branch; `[ ]` pending. A chec
 
 - [x] **P2-01 · Phase 2A code** Collect user-edited home/office, safe check-in location, preferred station and a municipality-source *self-checked* shelter, with per-place check dates/provenance (`OB-04,OB-08,SE-14–15`). The app cannot independently certify a shelter; current official availability must still be checked.
 - [x] **P2-02 · Phase 2A code** Add editable contact roles and explicit ordering, local/international phone-format checks, missing-role prompts and confirmation before opening SMS drafts (`OB-07,IN-12,RD-05`).
-- [ ] **P2-03** Expand ten generic readiness checks into a configurable 14-item go-bag inventory while retaining existing completion data (`RD-03,RD-11,CF-15`).
-- [ ] **P2-04** Track expiry/review dates, water quantity, cash target, embassy registration and critical preparation gaps (`RD-02,04–09`).
-- [ ] **P2-05** Keep honest weighted readiness calculation and distinguish **checked by user**, **system verified**, **expired** and **unknown** (`RD-07,RD-12,RD-13`).
+- [x] **P2-03 · Phase 2B code** Expand ten existing readiness checks into a 14-item go-bag inventory with optional custom extras, preserving the original ten checkmarks and storage key (`RD-03,RD-11,CF-15`).
+- [x] **P2-04 · Phase 2B code** Record personal quantities/targets, expiry/review dates, a separately labeled optional embassy-registration status and prioritized critical gaps (`RD-02,04–09`).
+- [x] **P2-05 · Phase 2B code** Maintain weighted core readiness without automatically counting missing water/cash quantities, expired or overdue records, or edited items awaiting recheck. Clearly separate **marked by user**, **counted ready**, **unknown**, **expired** and **system verified: none** (`RD-07,RD-12,RD-13`).
 - [ ] **P2-06** Make the tour's permission/consent pages functional only for feasible integrations; show manual-only alternatives (`OB-04–10`).
 - [ ] **P2-07** Improve privacy notes and JSON backup/import, with version migrations, restore tests, and no accidental data loss (`SE-16–18,CF-14–15,CF-19`).
 - [ ] **P2-08** Investigate account/secure sync as a separately opt-in later enhancement; do not upload address/contact/document data automatically.
@@ -80,6 +80,8 @@ Status notation: `[x]` completed in the named work branch; `[ ]` pending. A chec
 **Exit gate:** Existing users' v1 records survive; no automatic location/background permission at first load; readiness never claims documents or emergency kit are cached if not.
 
 **Phase 2A implementation report:** [PHASE2A_IMPLEMENTATION_REPORT.md](PHASE2A_IMPLEMENTATION_REPORT.md). Checkmarks mean implemented in a review branch, subject to CI and device acceptance; they do not mean deployed. **Phase 2B** continues P2-03 through P2-05 (go-bag inventory and accurate readiness). **Phase 2C** continues P2-06 through P2-08 (consent, backup/migration, sync investigation).
+
+**Phase 2B implementation report:** [PHASE2B_IMPLEMENTATION_REPORT.md](PHASE2B_IMPLEMENTATION_REPORT.md). Phase 2B checkmarks indicate the review-branch implementation only; GitHub Actions Chromium/mobile tests, owner review and real-device acceptance remain separate release gates. The deployed application is untouched by this PR.
 
 ## Phase 3 — Reliable incident and communication flow
 

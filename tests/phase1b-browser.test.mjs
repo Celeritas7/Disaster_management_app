@@ -11,7 +11,7 @@ try {({chromium}=createRequire(import.meta.url)('playwright'));}
 catch {/* GitHub Actions installs the browser test dependency. */}
 const root=process.env.DMA_TEST_ROOT || join(dirname(fileURLToPath(import.meta.url)),'..');
 const prefix='/Disaster_management_app/';
-const files=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','phase2a.css','service-worker.js','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
+const files=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','phase2a.css','phase2b.css','service-worker.js','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 
 test('Phase 1B screens, recovery, large controls and offline reload work on mobile', {timeout:120000},async t=>{
@@ -94,7 +94,17 @@ test('Phase 1B screens, recovery, large controls and offline reload work on mobi
   await page.reload({waitUntil:'domcontentloaded'});
   await page.getByText('ITEM 4 OF 4').waitFor();
   await picture('incident-resume-412.png');
-  await page.waitForFunction(()=>!!navigator.serviceWorker?.controller,{timeout:15000});
+  // Wait for the shell to finish caching before expecting this tab to be
+  // controlled. On slower CI workers a reload may interrupt initial claim.
+  await page.evaluate(async()=>{
+    if(!('serviceWorker' in navigator))throw new Error('Service workers unavailable on loopback.');
+    await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_,reject)=>setTimeout(()=>reject(new Error('Offline app shell did not finish installing.')),15000))
+    ]);
+  });
+  if(!await page.evaluate(()=>!!navigator.serviceWorker.controller))await page.reload({waitUntil:'domcontentloaded'});
+  await page.waitForFunction(()=>!!navigator.serviceWorker?.controller,null,{timeout:15000});
   await context.setOffline(true);
   await page.reload({waitUntil:'domcontentloaded',timeout:15000});
   await page.getByText('ITEM 4 OF 4').waitFor();

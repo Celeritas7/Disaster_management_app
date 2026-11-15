@@ -58,16 +58,18 @@ test('Watch demo is explicitly labeled in radar, list, and cards; dismiss restor
 test('Readiness gap cards and group inventory reflect actual checks, not a fixed example score',()=>{
   const b=browser();
   b.click('go',{page:'readiness'});
-  assert.match(b.app.innerHTML,/10 things to check/);
+  assert.match(b.app.innerHTML,/14 readiness gaps/);
   assert.equal((b.app.innerHTML.match(/class="p1a-gap-card"/g)||[]).length,3);
-  assert.match(b.app.innerHTML,/0 of 10 manually verified/);
+  assert.match(b.app.innerHTML,/0 \/ 14 counted · 0 marked by you/);
   b.click('toggle-check',{id:'water'});
-  assert.match(b.app.innerHTML,/9 things to check/);
-  assert.match(b.app.innerHTML,/1 of 10 manually verified/);
-  assert.match(b.app.innerHTML,/1 \/ 4 checked/);
+  assert.match(b.app.innerHTML,/14 readiness gaps/); // Water amount/target are not known.
+  assert.match(b.app.innerHTML,/0 \/ 14 counted · 1 marked by you/);
+  assert.match(b.app.innerHTML,/Target \/ amount unknown/);
   assert.equal(b.record().checks.water,true);
   assert.equal((b.app.innerHTML.match(/class="p1a-gap-card"/g)||[]).length,3);
-  assert.doesNotMatch(b.app.innerHTML,/aria-label="Mark Drinking water verified/);
+  b.click('toggle-check',{id:'food'});
+  assert.match(b.app.innerHTML,/13 readiness gaps/);
+  assert.match(b.app.innerHTML,/1 \/ 4 counted ready/);
   b.click('toggle-check',{id:'water'});
   assert.equal(b.record().checks.water,false);
 });

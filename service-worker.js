@@ -1,9 +1,9 @@
 // CacheStorage is shared by every app on the same origin (including other
 // Celeritas7 GitHub Pages projects). Never delete or read another app's caches.
 // Bump the revision whenever a shipped shell asset changes.
-const CACHE = 'disaster-management-app-v10';
+const CACHE = 'disaster-management-app-v11';
 const OWNED_CACHE = /^disaster-management-app-v\d+$/;
-const SHELL = ['./', './index.html', './styles.css', './phase1b.css', './phase1c.css', './phase2a.css', './phase2b.css', './phase2c.css', './phase3a.css', './app.js', './icon.svg', './icon-192.png', './icon-512.png', './manifest.webmanifest'];
+const SHELL = ['./', './index.html', './styles.css', './phase1b.css', './phase1c.css', './phase2a.css', './phase2b.css', './phase2c.css', './phase3a.css', './phase3b.css', './app.js', './icon.svg', './icon-192.png', './icon-512.png', './manifest.webmanifest'];
 const scope = new URL(self.registration.scope);
 const shellUrls = new Set(SHELL.map(path => new URL(path, scope).href));
 

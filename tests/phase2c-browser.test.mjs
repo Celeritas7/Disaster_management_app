@@ -12,7 +12,7 @@ catch {/* Browser install is CI-required, local optional. */}
 
 const root=process.env.DMA_TEST_ROOT||join(dirname(fileURLToPath(import.meta.url)),'..');
 const prefix='/Disaster_management_app/';
-const files=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','phase2a.css','phase2b.css','phase2c.css','phase3a.css',
+const files=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','phase2a.css','phase2b.css','phase2c.css','phase3a.css','phase3b.css',
   'service-worker.js','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
 const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 const KEY='disaster-management:v1',SLOT='disaster-management:preimport:v1';
@@ -156,7 +156,7 @@ test('Phase 2C: explicit browser permissions, preview/undo, encrypted import and
   await page.reload({waitUntil:'domcontentloaded',timeout:15000});
   await page.getByRole('heading',{name:'Clarity and control.'}).waitFor();
   const offline=await page.evaluate(async()=>({caches:await caches.keys(),record:JSON.parse(localStorage.getItem('disaster-management:v1'))}));
-  assert.ok(offline.caches.includes('disaster-management-app-v10'));
+  assert.ok(offline.caches.includes('disaster-management-app-v11'));
   assert.equal(offline.record.readiness.custom[0].title,'Prescription glasses');
   assert.equal(offline.record.logs[0].note,'My private log');
   await screenshot('phase2c-offline-375.png');await noOverflow();

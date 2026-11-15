@@ -28,6 +28,7 @@ This is a **functional local-first MVP**, not an emergency-alert service:
 - No push notifications, automatic SMS delivery, phone contact access or cloud backup.
 - Example scenarios are clearly labeled. No confidence numbers or risk scores are invented.
 - Emergency calls are links to the device dialer; SMS actions open a draft only.
+- The incident SMS screen offers reviewed English/Japanese templates, a one-at-a-time contact queue and manually reported draft/Send states. **Neither opening a draft nor reporting Send proves delivery.** Current location is entered separately and is never taken automatically from a saved home/shelter.
 - Browser localStorage can store addresses/contacts, but **it is not encrypted**. Avoid shared devices or storing document scans.
 - Optional encrypted files protect **exported backups only**, not local browser storage. A local one-slot pre-import recovery copy remains unencrypted until the next restore/erase. Keep a separate backup; browser storage can be deleted.
 - Location testing and browser storage protection are optional, initiated by you. There is no continuous location collection, and all browser permissions can be managed in site settings.
@@ -39,7 +40,7 @@ No build step or external dependencies are required. The **app shell is in the r
 
 The application is implemented with plain JavaScript, accessible HTML and CSS. Its state key is `disaster-management:v1`.
 
-Phase 2C implementation/security details and future synchronization gates are documented at `docs/PHASE2C_IMPLEMENTATION_REPORT.md`. Phase 3A adds reviewed, offline incident help, paused-step resume, user-operated simplified layout and honest call/171 fallback wording; see `docs/PHASE3A_IMPLEMENTATION_REPORT.md`. There is no live account synchronization or Akatsuki data-sharing contract yet.
+Phase 2C implementation/security details and future synchronization gates are documented at `docs/PHASE2C_IMPLEMENTATION_REPORT.md`. Phase 3A adds reviewed, offline incident help, paused-step resume, user-operated simplified layout and honest call/171 fallback wording; see `docs/PHASE3A_IMPLEMENTATION_REPORT.md`. Phase 3B adds local, bilingual, recipient-by-recipient SMS draft and outcome tracking; see `docs/PHASE3B_IMPLEMENTATION_REPORT.md`. There is no live account synchronization or Akatsuki data-sharing contract yet.
 
 ## Publishing on GitHub Pages
 

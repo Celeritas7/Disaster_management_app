@@ -39,7 +39,7 @@ No build step or external dependencies are required. The **app shell is in the r
 
 The application is implemented with plain JavaScript, accessible HTML and CSS. Its state key is `disaster-management:v1`.
 
-Phase 2C implementation/security details and future synchronization gates are documented at `docs/PHASE2C_IMPLEMENTATION_REPORT.md`. There is no live account synchronization or Akatsuki data-sharing contract yet.
+Phase 2C implementation/security details and future synchronization gates are documented at `docs/PHASE2C_IMPLEMENTATION_REPORT.md`. Phase 3A adds reviewed, offline incident help, paused-step resume, user-operated simplified layout and honest call/171 fallback wording; see `docs/PHASE3A_IMPLEMENTATION_REPORT.md`. There is no live account synchronization or Akatsuki data-sharing contract yet.
 
 ## Publishing on GitHub Pages
 

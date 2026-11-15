@@ -85,16 +85,18 @@ Status notation: `[x]` completed in the named work branch; `[ ]` pending. A chec
 
 ## Phase 3 — Reliable incident and communication flow
 
-- [ ] **P3-01** Recheck quake/fire/gas/evacuation guidance with Japanese official sources and document content-review date (`IN-03–05,IN-09–10,IN-18,CF-20`).
-- [ ] **P3-02** Support accessible one-step mode, context-sensitive Help/Can't/Skip and interruption/resume (`IN-10–11,IN-26`).
+- [x] **P3-01 · Phase 3A code** Reviewed offline quake/fire/gas/evacuation/tsunami help against FDMA/JMA official guidance on **2026-11-15**; stored source URLs and review date. Content is static; live alerts stay unknown (`IN-03–05,IN-09–10,IN-18,CF-20`).
+- [x] **P3-02 · Phase 3A code** Existing one-item mode now has per-item fallback help, all seven steps have contextual bilingual Help, step-level Can't/Skip remain unconfirmed, and unfinished progress gets an explicit Watch resume card (`IN-10–11,IN-26`).
 - [ ] **P3-03** Provide audited bilingual SMS templates that fill **only verified/user-provided** details; show unsent/draft/sent-confirmed distinctly (`IN-12–16`).
 - [ ] **P3-04** Decide explicitly whether to support sequential multi-recipient SMS composition; never call a click “sent to all” without delivery confirmation (`IN-14–17`).
-- [ ] **P3-05** Preserve `tel:119`, `tel:110`, `tel:171` links and test Android/iOS fallback; 171 availability/instructions verified (`IN-03–05,IN-17`).
-- [ ] **P3-06** Improve offline/low-battery state without using battery percentages unless reliably available (`IN-06–08`).
+- [ ] **P3-05 · Phase 3A partial** Preserved `tel:119`, `tel:110`, `tel:171`, added manual-dial fallback and accurately labeled NTT's conditional 171 availability. Automated Chromium checks are planned; **physical Android/iOS dialer testing remains pending** (`IN-03–05,IN-17`).
+- [x] **P3-06 · Phase 3A code** Added manual simplified incident display, practical low-power suggestions, honest offline/online text; no battery estimates, automatic battery saver or unsupported notifications (`IN-06–08`).
 - [ ] **P3-07** Capture optional user-supplied follow-up evidence/photos safely, without confusing an attached image with official damage assessment (`IN-22–27`).
 - [ ] **P3-08** Rehearse simulated scenarios: quake at home, damaged building, no internet, no contacts, interrupted flow, urgent 119.
 
 **Exit gate:** Offline response is fast and never blocks emergency access. Data-only proof of sending is not inferred from opening an SMS composer. Tsunami warning defaults to **unknown**, never “no warning.”
+
+**Phase 3A implementation report:** [PHASE3A_IMPLEMENTATION_REPORT.md](PHASE3A_IMPLEMENTATION_REPORT.md). Phase 3A is a bounded review PR; SMS composition/auditing (`P3-03/04`), follow-up evidence (`P3-07`), full scenario rehearsal (`P3-08`) and physical Android/iOS dialer checks remain future gates. No cloud connection or deployment is part of this phase.
 
 ## Phase 4 — Departure and stranded assistance
 

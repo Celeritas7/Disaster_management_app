@@ -142,11 +142,12 @@ function appHarness(initialRaw, {controlled = false, swEnabled = controlled} = {
 test('service worker install reloads all app-shell files from the network', async () => {
   const worker = serviceWorkerHarness();
   await worker.lifecycle('install');
-  assert.equal(worker.preloaded.length,13);
+  assert.equal(worker.preloaded.length,14);
   assert.ok(worker.preloaded.some(item=>item.url===SCOPE+'phase1c.css'));
   assert.ok(worker.preloaded.some(item=>item.url===SCOPE+'phase2a.css'));
   assert.ok(worker.preloaded.some(item=>item.url===SCOPE+'phase2b.css'));
   assert.ok(worker.preloaded.some(item=>item.url===SCOPE+'phase2c.css'));
+  assert.ok(worker.preloaded.some(item=>item.url===SCOPE+'phase3a.css'));
   assert.ok(worker.preloaded.every(item => item.url.startsWith(SCOPE) && item.cache === 'reload'));
   assert.equal(worker.skipWaits,1);
 });

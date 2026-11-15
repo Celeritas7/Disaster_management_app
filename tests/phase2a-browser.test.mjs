@@ -11,7 +11,7 @@ try {({chromium}=createRequire(import.meta.url)('playwright'));}
 catch {/* GitHub Actions installs Chromium with Playwright. */}
 const root=process.env.DMA_TEST_ROOT||join(dirname(fileURLToPath(import.meta.url)),'..');
 const prefix='/Disaster_management_app/';
-const files=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','phase2a.css','phase2b.css','phase2c.css','service-worker.js','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
+const files=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','phase2a.css','phase2b.css','phase2c.css','phase3a.css','service-worker.js','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 
 test('Phase 2A places, contact priority, phone confirmation, old data and offline mobile interaction', {timeout:180000},async t=>{
@@ -149,7 +149,7 @@ test('Phase 2A places, contact priority, phone confirmation, old data and offlin
     return {blocked,caches:await caches.keys(),record:JSON.parse(localStorage.getItem('disaster-management:v1'))};
   });
   assert.equal(offline.blocked,true);
-  assert.ok(offline.caches.includes('disaster-management-app-v9'));
+  assert.ok(offline.caches.includes('disaster-management-app-v10'));
   assert.equal(offline.record.profile.station,'Minami-Urawa Station');
   assert.equal(offline.record.contacts.length,2);
   assert.deepEqual(errors,[]);

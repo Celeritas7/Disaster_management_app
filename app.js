@@ -52,6 +52,47 @@
     ]}
   ];
   const INC = INCIDENT;
+  // Offline, static safety copy reviewed against FDMA/JMA/NTT primary sources
+  // on 2026-11-15. The app cannot verify a current hazard or service status.
+  const INCIDENT_GUIDANCE_REVIEW = '2026-11-15';
+  const INCIDENT_HELP = {
+    1: {title:'If you need urgent help · 緊急時',points:[
+      ['If someone needs an ambulance or there is a fire, call 119. Use 110 for an urgent police matter.','救急・火災は119、緊急の事件・事故は110。'],
+      ['If a phone cannot connect to 119, try a public phone or ask a nearby person or shop to call. Do not use emergency numbers merely to test them.','119につながらない場合は、公衆電話や周囲の人に通報を依頼。']
+    ]},
+    2: {title:'If a hazard prevents the check · 危険がある場合',points:[
+      ['Protect yourself while shaking. Check appliances only once the shaking stops and only if safe.','揺れている間は身を守り、揺れが収まってから安全を確認。'],
+      ['If you smell gas, avoid flames and electrical switches, including ventilation fans. Leave the area safely and contact the gas company from outside.','ガス臭がしたら火気・電気スイッチを使わず、安全な場所へ。'],
+      ['For fire or thick smoke, move away from danger. Keep low to avoid smoke and call 119.','火災・煙がある場合は煙を避けて避難し、119へ。']
+    ]},
+    3: {title:'If you cannot contact anyone · 連絡できない場合',points:[
+      ['Save your progress and try later. A copied message or opened SMS composer is NOT a delivered message.','送信画面を開いただけでは送信完了ではありません。'],
+      ['Disaster Message Dial 171 operates when NTT activates it, including announced practice periods. Check availability when online; follow the voice prompts if active.','171は提供中のみ利用できます。利用状況と音声案内を確認。']
+    ]},
+    4: {title:'If you cannot verify an evacuation route · 避難判断に迷ったら',points:[
+      ['Move away from fire, heavy smoke, gas leaks or serious building damage. Follow current local authorities; do not wait for this app to update.','火災・ガス漏れ・建物損傷などの危険から離れ、自治体の指示に従う。'],
+      ['Near the coast, strong or long shaking may signal tsunami danger. Go promptly to higher, safer ground without waiting for an alert. Tsunami status here is UNKNOWN.','海岸付近で強い揺れや長い揺れを感じたら、警報を待たず高い安全な場所へ。']
+    ]},
+    5: {title:'If supplies are not accessible · 持ち出せない場合',points:[
+      ['Do not return to an unsafe building or delay a necessary evacuation to collect supplies. Mark items you cannot take and continue.','危険な建物に戻らず、持ち出せない物は「できない」を選ぶ。']
+    ]},
+    6: {title:'If the network or battery is limited · 通信できない場合',points:[
+      ['Try battery-powered radio, public announcements or nearby official notices when safe. Web links require a connection.','ラジオや自治体の放送など、安全に利用できる情報源を確認。'],
+      ['Reduce screen brightness in your device settings and conserve power. This web app cannot switch on battery saver or measure battery reliably.','端末の設定で画面を暗くし、電池を節約してください。']
+    ]},
+    7: {title:'If recording evidence is unsafe · 記録できない場合',points:[
+      ['Only photograph or write notes when it is safe; never re-enter a dangerous area for evidence. An image is not an official assessment.','安全が最優先。危険な場所に戻って写真を撮らないでください。']
+    ]}
+  };
+  const ITEM_FALLBACKS = {
+    2:['If the floor is unsafe, do not cross broken glass. Find a safer route if possible.',
+      'If there is smoke or gas, leave safely. Do not touch switches or gas equipment.',
+      'Use another safe way out if the usual exit is blocked. Do not force a dangerous route.',
+      'Use stairs only if they are safe; do not enter a damaged stairwell.'],
+    5:['Do not enter an unsafe area for the bag.','Take water only if it is safe to reach.','Conserve remaining power if the charger is inaccessible.','Only help others when doing so does not put you in danger.'],
+    6:['If web access fails, try an offline radio or local official announcement.','Do not assume silence means an evacuation order is absent.','Radio may help when mobile data is unavailable.'],
+    7:['Do not photograph in danger; write a note later.','Contact them when a safe means is available.','Try later if the network is down.','Add the improvement later; urgent safety takes priority.']
+  };
   const STRANDED = [
     {title:'Retrace your steps',description:'Check where you last used your wallet, pass or keys. Return only if it is safe and accessible.',when:'No cost if you can safely retrieve it'},
     {title:'Check mobile payment options',description:'See whether a mobile transit card or payment card is already set up. Verify available funds and battery.',when:'Only if already supported by your device'},
@@ -150,7 +191,7 @@
   function defaults() {
     return {version:VERSION,page:'watch',tourStep:0,tourDone:false,profile:{home:'',office:'',shelter:'',safePlace:'',station:'',shelterSource:'',placeChecks:{}},
       checks:{},readiness:{items:{},custom:[],nextCustomId:1,embassy:{status:'unknown',updatedAt:''}},
-      contacts:[],incident:{active:false,step:1,done:{},contacted:[],note:'',oneStep:false,cursor:{},outcomes:{}},
+      contacts:[],incident:{active:false,step:1,done:{},contacted:[],note:'',oneStep:false,cursor:{},outcomes:{},stepOutcomes:{},paused:false,lowPower:false},
       departure:{wallet:false,pass:false,phone:false,keys:false},strandedStep:0,
       night:{phase:'idle',limit:2,budget:3000,leave:'23:30',leaveAt:null,mode:'train',drinks:0,spent:0,note:'',costHistory:[]},
       scenario:false,logs:[],rules:[]};
@@ -208,6 +249,12 @@
     // Additive v1 fields: old records without per-item outcomes remain valid.
     // Can't and Skip are NOT completions, and must survive an offline reload.
     d.incident.oneStep=!!incident.oneStep;
+    d.incident.paused=!!incident.paused && d.incident.active;
+    d.incident.lowPower=!!incident.lowPower;
+    for(const [stepNumber,result] of Object.entries(obj(incident.stepOutcomes))){
+      if(/^[1-7]$/.test(stepNumber) && ['cant','skip'].includes(result))
+        d.incident.stepOutcomes[stepNumber]=result;
+    }
     for(const s of INCIDENT.filter(s=>s.items)) {
       const k=String(s.n),cursor=obj(incident.cursor)[k];
       d.incident.cursor[k]=num(cursor,s.items.length,0);
@@ -327,7 +374,12 @@
     catch { toast('Local storage is unavailable; your changes may not persist.');return false; }
   }
   function update() { save(); render(); }
-  function go(page) { if(page!=='settings')contactEditIndex=null;data.page=page;update();window.scrollTo({top:0,behavior:'instant'}); }
+  function go(page) {
+    if(page!=='settings')contactEditIndex=null;
+    if(data.page==='incident' && page!=='incident' && data.incident.active)data.incident.paused=true;
+    if(page==='incident' && data.incident.active)data.incident.paused=false;
+    data.page=page;update();window.scrollTo({top:0,behavior:'instant'});
+  }
   function toast(message) {
     const el=document.getElementById('toast');
     el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);
@@ -416,6 +468,7 @@
       <div class="p1a-watch-top"><div class="p1a-kicker">${icon('eye','lg')} <span>WATCH</span></div><div class="p1a-watch-time">${when()} JST</div></div>
       ${!data.tourDone?`<div class="card-soft setup-row p1a-start-tour"><span class="tile-icon">${icon('sunrise')}</span><div style="flex:1"><h3>Set up your safety companion</h3><p>Seven short, honest steps. No live monitoring or permissions are active.</p></div>${action('go','Start setup '+icon('chevron','sm'),'btn-primary','data-page="onboard"')}</div>`:''}
       <div class="p1a-watch-intro"><div class="p1a-watch-state ${demo?'is-demo':''}"><span class="p1a-state-dot"></span><h1>${demo?'One thing to look at':'A quieter place to prepare.'}</h1></div><p>${demo?'Illustrative advice only · Not based on current conditions.':'Local guidance is ready. Current hazards remain unknown.'}</p></div>
+      ${data.incident.active?`<section class="p3a-resume" aria-label="Unfinished incident guide"><div><span>UNFINISHED · LOCALLY SAVED</span><h2>Resume earthquake guide · step ${data.incident.step} of 7</h2><p>${data.incident.paused?'You left the guide before finishing.':'The guide has unfinished progress.'} Checked, can't-do and skipped items remain distinct; none is assumed safe or completed.</p></div>${action('go','Resume guide','btn-primary btn-lg','data-page="incident"')}</section>`:''}
       <div class="p1a-layout-selector" role="group" aria-label="Watch display layout">${[['radar','Radar'],['list','List'],['card','Cards']].map(([id,label])=>`<button type="button" data-action="watch-layout" data-layout="${id}" class="${watchLayout===id?'is-active':''}" aria-pressed="${watchLayout===id}">${label}</button>`).join('')}</div>
       ${visual}
       ${watchLayout==='radar'?watchRiskTiles():''}
@@ -463,19 +516,32 @@
   }
   function incident() {
     const i=data.incident,step=INC[i.step-1],total=INC.length;
-    return `<div class="incident-page p1b-incident" role="region" aria-label="Offline earthquake response guide">
+    const stepOutcome=i.stepOutcomes[i.step];
+    return `<div class="incident-page p1b-incident ${i.lowPower?'p3a-simple':''}" role="region" aria-label="Offline earthquake response guide">
       <div class="p1b-incident-top"><span>EARTHQUAKE · 地震</span><span>STEP ${i.step} / ${total}</span></div>
       <div class="p1b-incident-progress" role="group" aria-label="Guide navigation; earlier steps are not necessarily completed">${INC.map(x=>`<button type="button" class="p1b-incident-segment ${x.n<i.step?'past':''} ${x.n===i.step?'current':''}" data-action="incident-step" data-step="${x.n}" aria-label="Go to step ${x.n}: ${safe(x.title)}" ${x.n===i.step?'aria-current="step"':''}></button>`).join('')}</div>
       <header class="p1b-incident-header"><div class="p1b-overline">${i.active?'GUIDE IN PROGRESS':'OFFLINE GUIDE READY'}</div><h1>${step.n===1?'Are you hurt?':safe(step.title)}</h1><p class="p1b-incident-jp">${step.n===1?'怪我をしていますか？':safe(step.jp)}</p><p class="p1b-incident-lead">${safe(step.desc)}</p></header>
-      <div class="p1b-emergency-bar" role="note">${icon('alert')}<span>Protect yourself during shaking. Emergency calls open your phone dialer: <a href="tel:119">119 · Ambulance / fire</a> or <a href="tel:110">110 · Police</a>. Current hazards and routes are not monitored.</span></div>
+      <div class="p1b-emergency-bar" role="note">${icon('alert')}<span>Protect yourself during shaking. <a href="tel:119">119 · Ambulance / fire</a> or <a href="tel:110">110 · Police</a>. Links only request the dialer: if it does not open, dial manually on a supported phone or ask someone nearby. No call is placed or confirmed by this app. Current hazards and routes are not monitored.</span></div>
+      <div class="p3a-status-row" role="group" aria-label="Incident display options">${action('incident-low-power',i.lowPower?'Show standard display':'Use simpler display','btn-outline btn-sm',`aria-pressed="${i.lowPower}"`)}<span>Manual low-power reading layout · does not change device battery settings</span></div>
+      ${stepOutcome?`<div class="p3a-unfinished" role="status"><strong>${stepOutcome==='cant'?'Cannot do this step right now':'Step skipped for now'} · NOT COMPLETE</strong><p>Return to this step when safe; its actions have not been verified.</p>${action('incident-step-clear','Clear this step status','btn-quiet btn-sm')}</div>`:''}
       ${incidentBody(step)}
+      ${incidentHelp(step)}
+      <div class="p3a-step-outcomes" role="group" aria-label="Step status">${action('incident-step-cant','Can’t do this step','btn-outline btn-sm')}${action('incident-step-skip','Skip step for now','btn-outline btn-sm')}<small>These choices never mark a step complete. “Can’t” shows a safe fallback; “Skip” moves on without confirming anything.</small></div>
       <div class="p1b-incident-controls">${action('incident-prev','← Previous step','btn-outline',i.step===1?'disabled':'')}${action(i.step===7?'finish-incident':'incident-next',i.step===7?'Save review to log':'Continue to step '+(i.step+1)+' →','btn-primary')}${action('go','Leave guide (progress saved)','btn-quiet','data-page="watch"')}</div>
-      <p class="p1b-incident-footnote">Step position does not mean tasks are done. Manual progress is saved on this device. ${netOnline?'Browser reports connected; live alerts are not connected.':'Browser reports offline; use locally available official information and emergency services.'}</p>
+      <p class="p1b-incident-footnote">Safety copy reviewed ${INCIDENT_GUIDANCE_REVIEW} against Japanese official sources; not a live assessment. Tsunami and other warnings here are <strong>unknown</strong>. ${netOnline?'Browser reports a connection, but may not reach websites.':'Browser reports offline; external official links may not work.'} Steps and unavailable actions remain saved locally.</p>
     </div>`;
+  }
+  function incidentHelp(step) {
+    const help=INCIDENT_HELP[step.n];
+    return `<details class="p3a-help" ${data.incident.stepOutcomes[step.n]==='cant'?'open':''}><summary>Help with this step · 困ったときは</summary><div><h2>${safe(help.title)}</h2><ul>${help.points.map(([en,jp])=>`<li><strong>${safe(en)}</strong><span lang="ja">${safe(jp)}</span></li>`).join('')}</ul>
+      <p>Guidance may not fit every situation. Prioritize immediate safety and current official instructions; this app has no live hazard status.</p>
+      ${step.n===3?`<p>${link('https://www.ntt-east.co.jp/saigai/news/','NTT 171 current availability (online)')}</p>`:''}
+      ${step.n===4?`<p>${link('https://www.jma.go.jp/bosai/','JMA live warnings (online)')}</p>`:''}
+    </div></details>`;
   }
   function incidentBody(step) {
     const i=data.incident,done=i.done[i.step]||[];
-    if(step.n===1) return `<section class="p1b-incident-card p1b-call-card"><p>Call if anyone needs urgent medical assistance or is in danger. These links open the dialer; the app does not place a call by itself.</p><div class="p1b-call-buttons"><a class="p1b-call-primary" href="tel:119"><span><strong>Yes — call 119</strong><small>救急・消防 · Ambulance / Fire</small></span>${icon('phone','lg')}</a><a class="p1b-call-secondary" href="tel:110"><span><strong>Danger / crime — 110</strong><small>警察 · Police</small></span>${icon('phone','lg')}</a></div><div class="p1b-phone-script"><span>SAY ON THE PHONE · 日本語</span><strong>救急です。住所は${safe(data.profile.home||'［住所］')}です。</strong><small>“I need an ambulance. My address is …” Verify your location before speaking.</small></div></section>`;
+    if(step.n===1) return `<section class="p1b-incident-card p1b-call-card"><p>Call if anyone needs urgent medical assistance or is in danger. These links open the dialer; the app does not place a call by itself.</p><div class="p1b-call-buttons"><a class="p1b-call-primary" href="tel:119"><span><strong>Yes — call 119</strong><small>救急・消防 · Ambulance / Fire</small></span>${icon('phone','lg')}</a><a class="p1b-call-secondary" href="tel:110"><span><strong>Danger / crime — 110</strong><small>警察 · Police</small></span>${icon('phone','lg')}</a></div><div class="p1b-phone-script"><span>SAY ON THE PHONE · 日本語</span><strong>救急です。今いる場所は［現在地を確認］です。</strong><small>“I need an ambulance. My current location is …” Give the dispatcher your ACTUAL location or a nearby landmark.</small>${data.profile.home?`<small>Saved home address (NOT assumed to be your current position): ${safe(data.profile.home)}</small>`:''}</div></section>`;
     if(step.items) {
       const statuses=i.outcomes[i.step]||{},cursor=Math.min(i.cursor[i.step]||0,step.items.length);
       const complete=step.items.filter((_,k)=>done.includes(k)).length;
@@ -483,7 +549,7 @@
       const unresolved=step.items.length-complete;
       const focused=cursor<step.items.length?step.items[cursor]:null;
       return `<section class="p1b-incident-card p1b-checklist-card"><div class="p1b-checklist-heading"><div><h2>${i.oneStep?'One item at a time':'Safety checklist'}</h2><p>${reviewed} of ${step.items.length} reviewed · ${unresolved} not confirmed done. If unsafe, choose “Can’t” or “Skip” and continue.</p></div>${action('incident-mode',i.oneStep?'Show full checklist':'One at a time','btn-outline btn-lg')}</div>
-      ${i.oneStep ? (focused ? `<div class="p1b-one-progress">ITEM ${cursor+1} OF ${step.items.length} · ${done.includes(cursor)?'MARKED DONE':statuses[cursor]==='cant'?'CAN’T DO':statuses[cursor]==='skip'?'SKIPPED':'NOT REVIEWED'}</div><div class="p1b-one-item"><h3>${safe(focused[0])}</h3><p lang="ja">${safe(focused[1])}</p></div><div class="p1b-one-actions"><button type="button" class="p1b-one-done" data-action="incident-item-outcome" data-index="${cursor}" data-result="done">Done ${icon('check','sm')}</button><button type="button" class="p1b-one-cant" data-action="incident-item-outcome" data-index="${cursor}" data-result="cant">Can’t do</button><button type="button" class="p1b-one-skip" data-action="incident-item-outcome" data-index="${cursor}" data-result="skip">Skip for now</button></div>${cursor>0?action('incident-item-prev','← Previous item','btn-quiet btn-lg'):''}` : `<div class="p1b-one-summary"><h3>Checklist reviewed</h3><p>${complete} done, ${Object.values(statuses).filter(s=>s==='cant').length} can’t do, ${Object.values(statuses).filter(s=>s==='skip').length} skipped. Unfinished actions are not marked complete. Revisit them if conditions allow.</p>${action('incident-item-restart','Review items again','btn-outline btn-lg')}</div>`) : `<div class="p1b-list-items">${step.items.map(([t,j],k)=>{const status=done.includes(k)?'done':statuses[k]||'pending';return `<button class="p1b-list-item ${status}" data-action="incident-toggle" data-index="${k}" aria-pressed="${status==='done'}" aria-label="${safe(t)} · ${status==='done'?'Done, tap to undo':status==='cant'?'Can’t do; tap to mark done':status==='skip'?'Skipped; tap to mark done':'Not reviewed; tap to mark done'}"><span class="p1b-list-mark">${status==='done'?icon('check','sm'):''}</span><span class="p1b-list-text"><strong>${safe(t)}</strong><small lang="ja">${safe(j)}</small></span><span class="p1b-list-status">${status==='done'?'Done':status==='cant'?'Can’t':status==='skip'?'Skipped':'Pending'}</span></button>`;}).join('')}</div>`}
+      ${i.oneStep ? (focused ? `<div class="p1b-one-progress">ITEM ${cursor+1} OF ${step.items.length} · ${done.includes(cursor)?'MARKED DONE':statuses[cursor]==='cant'?'CAN’T DO':statuses[cursor]==='skip'?'SKIPPED':'NOT REVIEWED'}</div><div class="p1b-one-item"><h3>${safe(focused[0])}</h3><p lang="ja">${safe(focused[1])}</p></div><details class="p3a-item-help"><summary>Help if I can't do this item · できないとき</summary><p>${safe(ITEM_FALLBACKS[step.n]?.[cursor] || 'If it is unsafe, do not force it. Try again later.')}</p></details><div class="p1b-one-actions"><button type="button" class="p1b-one-done" data-action="incident-item-outcome" data-index="${cursor}" data-result="done">Done ${icon('check','sm')}</button><button type="button" class="p1b-one-cant" data-action="incident-item-outcome" data-index="${cursor}" data-result="cant">Can’t do</button><button type="button" class="p1b-one-skip" data-action="incident-item-outcome" data-index="${cursor}" data-result="skip">Skip for now</button></div>${cursor>0?action('incident-item-prev','← Previous item','btn-quiet btn-lg'):''}` : `<div class="p1b-one-summary"><h3>Checklist reviewed</h3><p>${complete} done, ${Object.values(statuses).filter(s=>s==='cant').length} can’t do, ${Object.values(statuses).filter(s=>s==='skip').length} skipped. Unfinished actions are not marked complete. Revisit them if conditions allow.</p>${action('incident-item-restart','Review items again','btn-outline btn-lg')}</div>`) : `<div class="p1b-list-items">${step.items.map(([t,j],k)=>{const status=done.includes(k)?'done':statuses[k]||'pending';return `<button class="p1b-list-item ${status}" data-action="incident-toggle" data-index="${k}" aria-pressed="${status==='done'}" aria-label="${safe(t)} · ${status==='done'?'Done, tap to undo':status==='cant'?'Can’t do; tap to mark done':status==='skip'?'Skipped; tap to mark done':'Not reviewed; tap to mark done'}"><span class="p1b-list-mark">${status==='done'?icon('check','sm'):''}</span><span class="p1b-list-text"><strong>${safe(t)}</strong><small lang="ja">${safe(j)}</small></span><span class="p1b-list-status">${status==='done'?'Done':status==='cant'?'Can’t':status==='skip'?'Skipped':'Pending'}</span></button>`;}).join('')}</div>`}
         ${step.n===2?`<div class="info-band amber" style="margin-top:17px">${icon('alert')}<div>If shaking starts again, drop, cover your head, and hold on. Avoid operating gas equipment if you suspect a leak.</div></div>`:''}
         ${step.n===6?`<div class="link-list" style="margin-top:18px">${link('https://www.jma.go.jp/bosai/','JMA official updates')}${link('https://www.nhk.or.jp/kishou-saigai/','NHK disaster info')}</div>`:''}
         ${step.n===7?`<div class="text-field" style="margin-top:20px"><label for="incident-note">What happened / what to improve</label><textarea id="incident-note" data-save-field="incident.note" placeholder="For your private incident log…">${safe(i.note)}</textarea></div>`:''}
@@ -493,8 +559,8 @@
       <div class="card-soft card-pad"><div class="sublabel">MESSAGE · ENGLISH / 日本語</div><p style="color:#e8efff;font-size:15px">${safe(safetyMessage())}</p><p style="color:#b3bfd6;font-size:14px">無事です。今は${safe(data.profile.safePlace||'［現在地］')}にいます。また連絡します。</p>${action('copy-message',icon('copy','sm')+' Copy message','btn-primary')}</div>
       <div class="section-heading"><h2>Emergency contacts</h2><small>${data.contacts.length} saved</small></div>
       ${data.contacts.length?data.contacts.map((c,k)=>`<div class="contact-row"><div><div class="contact-name">${safe(c.name)}</div><div class="contact-meta">${safe(contactRole(c.role))} · ${safe(c.phone)} · Priority ${k+1}</div></div><div class="form-actions" style="margin:0">${action('sms-contact','Review SMS draft','btn-outline btn-sm',`data-index="${k}"`)}${action('incident-contact',i.contacted.includes(k)?'Reached ✓':'Mark reached',i.contacted.includes(k)?'btn-success btn-sm':'btn-outline btn-sm',`data-index="${k}"`)}</div></div>`).join(''):`<div class="info-band amber">${icon('info')}<div>No contacts saved yet. Add them from Settings. ${action('go','Add contacts','btn-quiet btn-sm','data-page="settings"')}</div></div>`}
-      <div class="info-band blue" style="margin-top:18px">${icon('phone')}<div><strong>Disaster Message Dial 171 · 災害用伝言ダイヤル</strong><br>Call <a href="tel:171">171</a> and follow voice prompts. Press 1 to record or 2 to listen, then follow the requested phone-number steps. <a href="https://www.ntt-east.co.jp/en/saigai/voice171s/rec.html" target="_blank" rel="noopener noreferrer">NTT instructions</a>.</div></div></section>`;
-    if(step.n===4) return `<section class="incident-step-card"><h3>Use current, verified warnings.</h3><p>This app has no live quake, tsunami, shelter availability or route feed. Never rely on a demonstration map for evacuation.</p>
+      <div class="info-band blue" style="margin-top:18px">${icon('phone')}<div><strong>Disaster Message Dial 171 · 災害用伝言ダイヤル</strong><br>This is <strong>not an always-on service</strong>. NTT activates 171 during eligible disasters and announced practice periods. Availability is <strong>unknown in this offline app</strong>. When offered, <a href="tel:171">dial 171</a> (or enter 171 manually), follow voice prompts: 1 to record or 2 to play, then the requested phone-number steps. <a href="https://www.ntt-east.co.jp/saigai/voice171s/rec.html" target="_blank" rel="noopener noreferrer">NTT instructions</a> · <a href="https://www.ntt-east.co.jp/saigai/news/" target="_blank" rel="noopener noreferrer">current availability (requires internet)</a>. The app cannot call or verify a recording.</div></div></section>`;
+    if(step.n===4) return `<section class="incident-step-card"><h3>Use current, verified warnings.</h3><p>This app has no live quake, tsunami, shelter availability or route feed. <strong>Tsunami status: UNKNOWN.</strong> At the coast, leave for higher, safer ground promptly after strong or long shaking without waiting for an alert. Never rely on a demonstration map for evacuation.</p>
       <div class="callout-steps"><div class="callout"><strong class="red">LEAVE IMMEDIATE DANGER</strong><ul><li>Fire, smoke or gas hazard</li><li>Serious structural damage</li><li>Tsunami warning / official order</li><li>Other imminent risk</li></ul></div><div class="callout neutral"><strong class="green">IF SHELTERING IN PLACE</strong><ul><li>Make sure conditions remain safe</li><li>Monitor official instructions</li><li>Keep exits clear</li><li>Be ready to move if advised</li></ul></div></div>
       <div class="card-soft card-pad" style="margin-top:15px"><div class="sublabel">YOUR SAVED SHELTER · SELF-REPORTED</div><h3 style="font-size:18px;margin:10px 0 4px">${safe(data.profile.shelter||'Not saved yet')}</h3><p>${safe(checkedPlace('shelter'))}. ${data.profile.shelter?'Check the latest municipality instructions, accessibility and route again before travelling. The app has not verified availability.':'Add an officially designated shelter from your municipality’s information in Settings.'}</p>${data.profile.shelterSource?`<p><strong>Your source note:</strong> ${safe(data.profile.shelterSource)}</p>`:''}${action('go','Review shelter','btn-outline btn-sm','data-page="settings"')}</div>
       <div class="link-list" style="margin-top:17px">${link('https://www.jma.go.jp/bosai/','JMA official alerts')}${link('https://www.bousai.go.jp/','Japan disaster information')}</div></section>`;
@@ -986,6 +1052,24 @@
     if(name==='incident-step'){data.incident.active=true;data.incident.step=Number(button.dataset.step)||1;return update();}
     if(name==='incident-next'){data.incident.active=true;data.incident.step=Math.min(7,data.incident.step+1);return update();}
     if(name==='incident-prev'){data.incident.step=Math.max(1,data.incident.step-1);return update();}
+    if(name==='incident-low-power'){
+      data.incident.lowPower=!data.incident.lowPower;
+      data.incident.active=true;return update();
+    }
+    if(name==='incident-step-cant'){
+      data.incident.stepOutcomes[data.incident.step]='cant';
+      data.incident.active=true;return update();
+    }
+    if(name==='incident-step-skip'){
+      if(data.incident.step===1 && !confirm('If there is urgent danger, seek emergency help. Do you still want to leave this step unfinished?'))return;
+      data.incident.stepOutcomes[data.incident.step]='skip';
+      data.incident.active=true;
+      if(data.incident.step<7)data.incident.step++;
+      return update();
+    }
+    if(name==='incident-step-clear'){
+      delete data.incident.stepOutcomes[data.incident.step];return update();
+    }
     if(name==='incident-toggle'){
       const i=data.incident;const checked=new Set(i.done[i.step]||[]);
       if(checked.has(index))checked.delete(index);else checked.add(index);
@@ -1034,8 +1118,9 @@
       const done=Object.values(incident.done).reduce((n,entries)=>n+entries.length,0);
       const outcomes=Object.values(incident.outcomes).flatMap(entries=>Object.values(entries));
       const cant=outcomes.filter(v=>v==='cant').length,skipped=outcomes.filter(v=>v==='skip').length;
+      const stepGaps=Object.values(incident.stepOutcomes||{});
       const note=(field('incident-note')?.value || incident.note || '').trim();
-      addLog('Incident guide reviewed',`Manual guide review only; ${done} items marked done, ${cant} can’t do, ${skipped} skipped. Unfinished items are not complete.${note?' Note: '+note:''}`,'incident','reviewed');
+      addLog('Incident guide reviewed',`Manual guide review only; ${done} items marked done, ${cant} can’t do, ${skipped} skipped; ${stepGaps.filter(v=>v==='cant').length} whole steps could not be done and ${stepGaps.filter(v=>v==='skip').length} whole steps were skipped. Unfinished items are not complete; skipped steps are also unconfirmed.${note?' Note: '+note:''}`,'incident','reviewed');
       data.incident=defaults().incident;
       go('log');return toast('Guide review saved locally; no emergency action was sent.');
     }

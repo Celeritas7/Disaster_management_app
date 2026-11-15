@@ -170,11 +170,11 @@ test('Untrusted custom text is escaped, malformed item metadata is normalized, a
   assert.equal(blocked.storage.get(KEY),raw);
 });
 
-test('Phase 2B style remains in the owned v9 shell without changing the storage key',()=>{
+test('Phase 2B style remains in the latest owned shell without changing the storage key',()=>{
   assert.match(css,/\.p2b-inventory-item/);
   assert.match(css,/@media\(max-width:360px\)/);
   assert.match(html,/href="\.\/phase2b\.css"/);
-  assert.match(sw,/disaster-management-app-v9/);
+  assert.match(sw,/disaster-management-app-v10/);
   assert.match(sw,/\.\/phase2b\.css/);
   assert.match(js,/disaster-management:v1/);
   assert.doesNotMatch(js,/localStorage\.clear\(/);

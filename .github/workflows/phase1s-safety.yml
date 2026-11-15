@@ -17,7 +17,7 @@ jobs:
         with:
           node-version: '22'
       - name: Run dependency-free cache, storage and UI-contract tests
-        run: node --test tests/phase1s.test.mjs tests/phase1a.test.mjs tests/phase1b.test.mjs tests/phase1c.test.mjs tests/phase2a.test.mjs tests/phase2b.test.mjs tests/phase2c.test.mjs
+        run: node --test tests/phase1s.test.mjs tests/phase1a.test.mjs tests/phase1b.test.mjs tests/phase1c.test.mjs tests/phase2a.test.mjs tests/phase2b.test.mjs tests/phase2c.test.mjs tests/phase3a.test.mjs
       - name: Install browser test dependencies
         run: |
           npm install --no-save --package-lock=false playwright@1.62.1
@@ -60,6 +60,12 @@ jobs:
           REQUIRE_BROWSER: '1'
           DMA_SCREENSHOT_DIR: artifacts/phase2c
         run: node --test tests/phase2c-browser.test.mjs
+      - name: Run Phase 3A emergency help, offline interruption and call-link browser checks
+        if: always()
+        env:
+          REQUIRE_BROWSER: '1'
+          DMA_SCREENSHOT_DIR: artifacts/phase3a
+        run: node --test tests/phase3a-browser.test.mjs
       - name: Save mobile visual-review screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -101,4 +107,11 @@ jobs:
         with:
           name: phase2c-mobile-reference
           path: artifacts/phase2c/
+          if-no-files-found: ignore
+      - name: Save Phase 3A incident flow and mobile references
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase3a-mobile-reference
+          path: artifacts/phase3a/
           if-no-files-found: ignore

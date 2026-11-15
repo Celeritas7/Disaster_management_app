@@ -1,0 +1,43 @@
+/* Phase 3A — emergency-first, local-only incident guidance. */
+.p3a-resume{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;background:#2b2019;border:2px solid #d6a168;color:#fff2e1;border-radius:17px;padding:21px;margin:10px 0 20px}
+.p3a-resume>div{flex:1;min-width:230px}
+.p3a-resume span{color:#ffc888;font-weight:800;font-size:11px;letter-spacing:.1em}
+.p3a-resume h2{font-size:21px;line-height:1.3;margin:8px 0}
+.p3a-resume p{font-size:13px;line-height:1.6;color:#f2dfcb;margin:0}
+.p3a-resume .btn{min-height:52px}
+.p3a-status-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 19px}
+.p3a-status-row .btn{min-height:48px;white-space:normal;color:#fff}
+.p3a-status-row .btn[aria-pressed="true"]{border-color:#ffd89b;background:#30291f}
+.p3a-status-row span{font-size:12px;color:#d9c9b8;flex:1;min-width:185px;line-height:1.5}
+.p3a-unfinished{border:2px solid #edb375;background:#332318;border-radius:14px;color:#fff0d8;padding:15px 18px;margin:0 0 18px}
+.p3a-unfinished strong{font-size:14px;color:#ffd08f}
+.p3a-unfinished p{font-size:13px;line-height:1.55;margin:7px 0}
+.p3a-unfinished .btn{min-height:45px}
+.p3a-help,.p3a-item-help{border:1px solid #a8a0b4;background:#19171d;border-radius:14px;color:#f8f2ff;margin:17px 0 0;overflow:hidden}
+.p3a-help summary,.p3a-item-help summary{cursor:pointer;padding:17px 19px;font-size:16px;font-weight:750;line-height:1.45;min-height:54px;outline-offset:-3px}
+.p3a-help[open] summary,.p3a-item-help[open] summary{border-bottom:1px solid #655d70;background:#2b2831}
+.p3a-help>div,.p3a-item-help>p{padding:17px 19px;margin:0}
+.p3a-help h2{font-size:20px;line-height:1.3;margin:0 0 15px}
+.p3a-help ul{padding-left:22px;margin:0}
+.p3a-help li{margin:0 0 17px;line-height:1.6;font-size:15px}
+.p3a-help li strong{font-weight:570;display:block}
+.p3a-help li span{display:block;color:#ffca8f;margin-top:4px}
+.p3a-help p,.p3a-item-help p{font-size:13px;color:#eee0f5;line-height:1.65}
+.p3a-help .external-link{display:inline-flex;min-height:42px;align-items:center;color:#bfcfff;overflow-wrap:anywhere}
+.p3a-item-help{border-color:#d4aa75;margin-top:12px}
+.p3a-item-help summary{font-size:14px;color:#ffcf96}
+.p3a-step-outcomes{border-top:1px solid #716b75;margin-top:23px;padding-top:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.p3a-step-outcomes .btn{min-height:52px;flex:1;white-space:normal;min-width:150px}
+.p3a-step-outcomes small{font-size:12px;color:#d8cbdc;line-height:1.6;flex-basis:100%}
+.p1b-incident.p3a-simple{background:#000;border-color:#929292}
+.p1b-incident.p3a-simple .p1b-incident-card,.p1b-incident.p3a-simple .incident-step-card{background:#080808;box-shadow:none}
+.p1b-incident.p3a-simple *, .p1b-incident.p3a-simple *:before,.p1b-incident.p3a-simple *:after{animation:none!important;transition:none!important}
+@media(max-width:420px){
+  .p3a-resume{padding:16px}
+  .p3a-resume .btn{width:100%}
+  .p3a-status-row .btn{width:100%}
+  .p3a-step-outcomes .btn{flex-basis:100%}
+  .p3a-help summary,.p3a-item-help summary{padding:16px}
+  .p3a-help>div,.p3a-item-help>p{padding:15px}
+}
+@media(prefers-reduced-motion:reduce){.p3a-resume *,.p3a-help *,.p3a-item-help *{animation:none!important;transition:none!important}}

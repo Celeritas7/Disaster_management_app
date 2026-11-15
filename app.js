@@ -3,7 +3,14 @@
 
   // No network or account is required. Entries remain in this browser's storage.
   const KEY = 'disaster-management:v1';
+  // A single local pre-import snapshot, never a background/cloud backup.
+  // It is intentionally a separate app-owned key and is erased with KEY.
+  const PREIMPORT_KEY = 'disaster-management:preimport:v1';
   const VERSION = 1;
+  const ENCRYPTED_BACKUP_FORMAT = 'disaster-management-encrypted';
+  const ENCRYPTED_BACKUP_VERSION = 1;
+  const BACKUP_KDF_ITERATIONS = 600000;
+  const MAX_BACKUP_FILE_BYTES = 2_000_000;
   // Keep the storage key stable across future schema revisions. Add one pure
   // migration function for each old version before incrementing VERSION.
   const MIGRATIONS = Object.freeze({});
@@ -68,10 +75,10 @@
     {jp:'はじめに',title:'A quiet watcher for a loud country.',body:'Disaster Management helps you prepare and walks you through difficult moments. Its first version works manually, even without a live feed.',points:[['Guided seven-step earthquake response','Offline guide'],['Checklist, contacts and safety notes','Saved here'],['Weather and quake monitoring','Not connected']]},
     {jp:'持ち出し',title:'Make your emergency kit visible.',body:'A readiness score is only useful when it reflects things you have genuinely checked.',points:[['Mark each item when verified','No assumptions'],['Prepare water, food and a go-bag','Your checklist'],['Remember to review dates','Manual']]},
     {jp:'緊急連絡先',title:'Save who you would contact.',body:'Add a few trusted contacts on your own device. The app helps draft a check-in, but cannot send one secretly.',points:[['Contacts stored in this browser','Local only'],['SMS needs your confirmation','Compose'],['Disaster Message Dial 171','Japan']]},
-    {jp:'住所',title:'Know your address and shelter.',body:'Save your home address, workplace and officially verified shelter name. Do not assume a route or facility is safe without current alerts.',points:[['Your address in a Japanese phone script','Personalized'],['Shelter name if confirmed','Manual'],['No location tracking','Current version']]},
+    {jp:'住所',title:'Know your address and shelter.',body:'Save your home address, workplace and officially verified shelter name. You may test browser location once, but no coordinates are retained. Manual entry always works.',points:[['Your address in a Japanese phone script','Personalized'],['Shelter name if confirmed','Manual'],['Location test requires your tap','Optional']]},
     {jp:'持ち物',title:'A two-second departure check.',body:'Before leaving, mark your wallet, pass, phone and keys. If something is missing, browse a practical fallback plan.',points:[['Wallet / pass / phone / keys','Manual'],['Stranded options','Step by step'],['Bluetooth/geofences','Not connected']]},
     {jp:'オフライン',title:'Keep the guide with you.',body:'After loading once and allowing the app to install its offline cache, the interface and saved records can work without internet.',points:[['App shell cached in your browser','Offline'],['Live alerts require internet','Separate'],['No cloud backup yet','Export data']]},
-    {jp:'同意',title:'Your safety, your decisions.',body:'No Akatsuki, calendar, Bluetooth or remote data feed is connected in this build. Every action is initiated by you.',points:[['Data remains on this browser','No sign-in'],['Emergency calls open the phone dialer','Your choice'],['You can export or erase records','Settings']]}
+    {jp:'同意',title:'Your safety, your decisions.',body:'No Akatsuki, calendar, Bluetooth or remote data feed is connected. Browser permission checks and protected-storage requests only run when you tap their buttons.',points:[['Data remains in this browser','No sign-in'],['Permissions are optional','Manual fallback'],['Encrypted exports and restore preview','Settings']]}
   ];
   const SVG = {
     eye:'<path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
@@ -272,6 +279,8 @@
   let nightLayout = 'counters';
   let contactEditIndex = null; // UI-only; never confuse editing with a saved contact.
   let inventoryOpenId = null; // UI-only; retain the detail panel being edited.
+  let pendingImport = null; // Preview only; no live record is changed until Apply.
+  const permissionState = {location:'Not checked',notification:'Not checked',storage:'Not checked',locationTest:'Not tested'};
   const app = document.getElementById('app');
   const readyCount = () => Math.round(100*CHECKS.reduce((n,c)=>n+(readinessStatus(c).ready?c.pts:0),0)/CHECKS.reduce((n,c)=>n+c.pts,0));
   const usableCount = () => CHECKS.filter(c=>readinessStatus(c).ready).length;
@@ -633,15 +642,30 @@
         </div>
       </div>`);
   }
+  function hasPreimportSnapshot() {
+    try {return localStorage.getItem(PREIMPORT_KEY)!==null;} catch {return false;}
+  }
+  function importCounts(record) {
+    return `${record.contacts.length} contacts · ${record.logs.length} log entries · ${record.rules.length} rules · ${record.readiness.custom.length} extra kit items · ${CHECKS.filter(c=>record.checks[c.id]).length} checked essentials`;
+  }
+  function importPreview() {
+    if(!pendingImport)return '';
+    const b=pendingImport;
+    const header=`<div class="p2c-preview-heading"><div><span class="p1c-overline">RESTORE REVIEW · NOTHING CHANGED YET</span><h3>${b.kind==='locked'?'Unlock encrypted backup':'Review before replacing records'}</h3><p>${safe(b.filename)} · ${b.fromSnapshot?'Previous local recovery copy':b.encrypted?'Password-encrypted file':'Unencrypted JSON file'}</p></div>${action('cancel-import','Cancel','btn-outline')}</div>`;
+    if(b.kind==='locked')return `<section id="p2c-import-preview" class="p2c-preview" aria-label="Encrypted backup unlock">${header}<p>Enter the password for this file. Decryption happens locally. A wrong password changes no saved data.</p><div class="text-field"><label for="p2c-unlock-password">Backup password</label><input id="p2c-unlock-password" type="password" autocomplete="off" minlength="12" maxlength="256" /></div>${action('unlock-import','Unlock and preview','btn-primary')}<p class="p2c-footnote">Lost passwords cannot be recovered by the app.</p></section>`;
+    const current=recoveryRaw!==null?'Current storage is quarantined (unreadable in this version).':importCounts(data);
+    const future=b.kind==='unreadable';
+    return `<section id="p2c-import-preview" class="p2c-preview" aria-label="Backup restore preview">${header}<div class="p2c-comparison"><div><strong>Saved in this browser now</strong><p>${safe(current)}</p></div><div><strong>Selected backup</strong><p>${future?'Previous raw records cannot be read by this version; restoring them will return to recovery mode.':safe(importCounts(b.record))}</p></div></div><p class="p2c-warning">${future?'This original snapshot is not compatible with the current app. Restore the untouched bytes only if you intend to recover them later with a compatible version.':'Importing replaces the current Disaster Management record, including contacts, kit details and logs. It will NOT merge the two records.'} A one-slot local copy of the current bytes is attempted first. If that copy cannot be saved, replacement is refused.</p>${action('apply-import',future?'Restore original bytes':'Replace records with this backup','btn-danger')}<p class="p2c-footnote">Cancel leaves your existing records unchanged. A previous copy is stored unencrypted in this browser, not uploaded.</p></section>`;
+  }
   function settingsPhase1C() {
     const group=(id,kicker,title,content)=>`<section class="p1c-setting-group" id="p1c-${id}"><span class="p1c-overline">${kicker}</span><h2>${title}</h2>${content}</section>`;
-    const status=(label,detail,value)=>`<div class="p1c-setting-row"><div><strong>${safe(label)}</strong><small>${safe(detail)}</small></div><span>${safe(value)}</span></div>`;
+    const status=(label,detail,value,permissionKey='')=>`<div class="p1c-setting-row"><div><strong>${safe(label)}</strong><small>${safe(detail)}</small></div><span ${permissionKey?`data-permission-status="${permissionKey}"`:''}>${safe(value)}</span></div>`;
     const sources=group('sources','01 · DATA SOURCES','Connections and service status',`<p>None of these remote services is currently connected to this app.</p>${status('JMA / weather / earthquakes','No current official feed or timestamps','Not connected')}${status('Train lines and timetables','No live delays, last-train lookup or confidence model','Not connected')}${status('Akatsuki / calendar','No sharing or automatic reminders','Not connected')}${status('Bluetooth / geofences','No paired tags or background position','Not connected')}${status('Local manual tools','Readiness, incident, log and Night Out','Available offline*')}`);
-    const privacy=group('privacy','02 · PRIVACY','Your records stay on this device',`<p>Addresses, contacts and Night Out logs are kept in browser local storage <strong>without encryption</strong>. This app has no account and does not automatically transmit them.</p>${status('Exact location sharing','The app does not request or track location','Disabled')}${status('Akatsuki consent','No integration to authorize or revoke yet','Not configured')}${status('Contact and calendar sharing','No access or background synchronization','Disabled')}<div class="p1c-honesty">${icon('info')} Avoid saving sensitive identity-document photos or secrets, especially on shared devices. Browser storage can be lost when site data is cleared.</div>`);
+    const privacy=group('privacy','02 · PRIVACY','Permission and privacy controls',`<p>Addresses, contacts and Night Out logs are kept in browser local storage <strong>without encryption</strong>. No account, cloud synchronization or background tracking is connected.</p><div class="p2c-permission-status">${status('Browser location permission','Status only; checking does not request access',permissionState.location,'location')}${status('Notification permission','Status only; notifications are not implemented',permissionState.notification,'notification')}${status('Offline storage protection','Browser may still clear data when you clear site data',permissionState.storage,'storage')}<div class="p2c-location-result" data-permission-status="locationTest" data-permission-prefix="One-time location test: " role="status">One-time location test: ${safe(permissionState.locationTest)}</div></div><div class="p2c-privacy-actions">${action('check-browser-permissions','Check browser status','btn-outline')}${action('test-location-once','Test location once','btn-outline')}${action('request-persistent-storage','Request protected storage','btn-outline')}</div><p class="p2c-footnote">Location test may show a browser prompt; its coordinates are immediately discarded. Manual address and shelter entry always work. If you grant location access, revoke it later through your browser’s site permissions. Protected storage is best-effort and is not a substitute for exporting a backup.</p>${status('Akatsuki / calendar / Bluetooth','No integration, authorization or revocation yet','Not connected')}${status('Contacts and personal documents','Never uploaded automatically','Local only')}<div class="p1c-honesty">${icon('info')} Avoid saving identity-document photos or secrets, especially on shared devices. Browser history, site-data clearing and device loss can remove local records.</div>`);
     const thresholds=group('thresholds','03 · THRESHOLDS','Limits and alerts',`<p>Only manual Night Out limits are active. Weather and earthquake thresholds cannot fire without verified sources.</p>${status('Night Out drinks limit',nLimitLabel(),'Manual counter')}${status('Commute alert confidence','Requires a real prediction model','Unavailable')}${status('Quake intensity threshold','Requires a verified JMA feed','Unavailable')}${action('go','Edit Night Out plan','btn-outline','data-page="night"')}`);
     const offline=group('offline','04 · OFFLINE','Offline readiness',`<p>The guide, manual records and installed app files can work offline after the service worker finishes caching. No shelter-map tiles, identity documents or live feeds are included.</p>${status('App shell',offlineReady?'Service worker ready; verify by going offline':'Cache not confirmed in this session',offlineReady?'Worker ready':'Checking')}${status('Seven-step response guide','Included directly in the application','Included')}${status('Shelter maps / documents','No data downloaded; separate future phase','Not available')}<div class="p1c-honesty">${icon('info')} *Offline availability also depends on browser storage retention. Test an offline launch before relying on it.</div>`);
     const places=settingsPlacesPhase2A(group);
-    const dataGroup=group('data','06 · DATA MANAGEMENT','Backup and recovery',`<p>Export contains your personal checklist, contacts and logs. Import replaces this app’s saved record <strong>only after confirmation</strong>.</p><div class="p1c-night-actions">${action('export',icon('download','sm')+' Export JSON backup','btn-outline')}<label class="btn btn-outline" for="import-json" style="cursor:pointer">Import backup</label><input id="import-json" type="file" accept="application/json,.json" style="display:none"/></div><div class="p1c-night-actions">${action('go','Review setup tour','btn-outline','data-page="onboard"')}${action('erase',icon('trash','sm')+' Erase this app’s records','btn-danger')}</div><p>Erasure is irreversible without a backup. No other app’s saved data or cache is intentionally deleted.</p>`);
+    const dataGroup=group('data','06 · DATA MANAGEMENT','Backup, privacy and recovery',`<p>Backups can include your home address, phone numbers and personal logs. <strong>Unencrypted JSON is readable by anyone with the file.</strong> Both formats can be imported after a preview, without any network service.</p><div class="p2c-backup-controls"><div class="p2c-export-card"><strong>Standard JSON · no password</strong><small>Compatible with older app backups. Store it privately.</small>${action('export',icon('download','sm')+' Export JSON backup','btn-outline')}</div><div class="p2c-export-card"><strong>Encrypted JSON · optional</strong><small>AES-GCM encryption with a password you choose. Password is never saved or sent.</small><div class="text-field"><label for="p2c-export-password">Backup password (12–256 characters)</label><input id="p2c-export-password" type="password" autocomplete="new-password" minlength="12" maxlength="256" /></div><div class="text-field"><label for="p2c-export-confirm">Confirm password</label><input id="p2c-export-confirm" type="password" autocomplete="new-password" minlength="12" maxlength="256" /></div>${action('export-encrypted',icon('download','sm')+' Export encrypted backup','btn-primary')}<small>Keep this password safely: there is no recovery option.</small></div></div><div class="p2c-import-controls"><label class="btn btn-outline" for="import-json" style="cursor:pointer">Choose backup to preview</label><input id="import-json" type="file" accept="application/json,.json" style="display:none"/>${hasPreimportSnapshot()?`${action('preview-previous','Review previous local copy','btn-outline')}${action('download-previous','Download previous copy','btn-outline')}`:''}</div>${importPreview()}<div class="p1c-night-actions">${action('go','Review setup tour','btn-outline','data-page="onboard"')}${action('erase',icon('trash','sm')+' Erase this app’s records','btn-danger')}</div><p class="p2c-footnote">The previous-copy slot is a second, <strong>unencrypted</strong> copy in this same browser, retained until the next successful restore or erasure. It is not a remote backup. Erasing removes only this app’s record and recovery copy, not unrelated app storage.</p><div class="p2c-sync-status"><strong>Account / secure sync · design stage only</strong><p>No account, server, Akatsuki contract or automatic upload is active. Future sync needs explicit per-data-category consent, verified authentication, encryption and conflict recovery.</p><span class="p2c-unconnected">Not connected</span></div>`);
     function nLimitLabel(){return data.night.limit===0?'Alcohol-free (0)':String(data.night.limit)+' drinks';}
     return `<section class="p1c-settings">${pageHeader('SETTINGS · 設定','Clarity and control.','Review your connected sources, privacy, manual thresholds, offline status, addresses, and backups.')}
       <nav class="p1c-setting-jumps" aria-label="Settings sections">${[['sources','Sources'],['privacy','Privacy'],['thresholds','Limits'],['offline','Offline'],['details','Contacts & places'],['data','Backups']].map(([id,label])=>`<a href="#p1c-${id}">${label}</a>`).join('')}</nav>
@@ -656,7 +680,9 @@
       <div class="p1a-onboard-icon">${icon(stageIcons[index],'lg')}</div>
       <h1>${safe(t.title)}</h1><p class="p1a-onboard-lead">${safe(t.body)}</p>
       <ul class="p1a-onboard-points">${t.points.map(([l,r])=>`<li><span class="p1a-onboard-bullet" aria-hidden="true"></span><strong>${safe(l)}</strong><small>${safe(r)}</small></li>`).join('')}</ul>
-      <div class="p1a-onboard-note">${icon('info','sm')} <div><strong>Why this matters</strong><p>${index===6?'You decide what to save or share. No services or device permissions are connected in this version.':'This step explains a manual feature. It does not grant permissions, activate background monitoring or send information.'}</p></div></div>
+      ${index===3?`<div class="p2c-tour-permission"><p>Optional: test whether browser location works <strong>once</strong>. No coordinates are kept. You can also type the address yourself in Settings.</p>${action('test-location-once','Test location once','btn-outline')}<span data-permission-status="locationTest" role="status">${safe(permissionState.locationTest)}</span></div>`:''}
+      ${index===6?`<div class="p2c-tour-permission"><p>Check current browser status without asking for new permissions, or continue with manual features.</p>${action('check-browser-permissions','Check browser status','btn-outline')}<span data-permission-status="location" data-permission-prefix="Location: " role="status">Location: ${safe(permissionState.location)}</span>${action('go','Review privacy settings','btn-outline','data-page="settings"')}</div>`:''}
+      <div class="p1a-onboard-note">${icon('info','sm')} <div><strong>Why this matters</strong><p>${index===6?'You decide what to save and share. Calendar, Bluetooth, Akatsuki and notifications are still not connected.':'The app stays manual; this step cannot activate background monitoring or send information.'}</p></div></div>
       <div class="p1a-onboard-controls">${action('tour-next',index===TOUR.length-1?'Finish setup '+icon('check','sm'):'Continue '+icon('arrow','sm'),'btn-primary btn-lg btn-full')}
         <div class="p1a-onboard-secondary">${index?action('tour-prev','← Back','btn-quiet'): '<span></span>'}${index===TOUR.length-1?'':action('tour-skip-step','Skip this step','btn-quiet')}${action('tour-skip','Exit tour','btn-quiet')}</div>
       </div>
@@ -685,6 +711,173 @@
     setTimeout(()=>URL.revokeObjectURL(url),500);
     toast('Backup download started. Keep the file somewhere safe.');
   }
+  function updatePermissionDisplay() {
+    for(const [key,value] of Object.entries(permissionState)){
+      for(const el of app.querySelectorAll?.(`[data-permission-status="${key}"]`)||[])
+        el.textContent=(el.dataset.permissionPrefix||'')+value;
+    }
+  }
+  async function checkBrowserPermissions() {
+    permissionState.location='Checking…';
+    permissionState.notification=typeof Notification==='undefined'?'Unavailable (manual only)':Notification.permission;
+    permissionState.storage='Checking…';
+    updatePermissionDisplay();
+    try {
+      if(!navigator.permissions?.query)permissionState.location='Status query unavailable';
+      else {
+        const response=await navigator.permissions.query({name:'geolocation'});
+        permissionState.location=['granted','denied','prompt'].includes(response.state)?response.state:'Unknown';
+      }
+    } catch {permissionState.location='Status query unsupported';}
+    try {
+      if(!navigator.storage?.persisted)permissionState.storage='Not supported';
+      else permissionState.storage=await navigator.storage.persisted()?'Persistent storage granted':'Best-effort storage';
+    } catch {permissionState.storage='Storage status unavailable';}
+    updatePermissionDisplay();
+  }
+  function testLocationOnce() {
+    if(!navigator.geolocation?.getCurrentPosition){permissionState.locationTest='Location API unavailable; use manual entries.';updatePermissionDisplay();return;}
+    permissionState.locationTest='Waiting for browser response…';updatePermissionDisplay();
+    try {
+      // The position object is deliberately ignored: no coordinates stored,
+      // rendered, logged, shared or passed to any other service.
+      navigator.geolocation.getCurrentPosition(
+        ()=>{permissionState.locationTest='Available now; coordinates discarded.';updatePermissionDisplay();},
+        err=>{permissionState.locationTest=err?.code===1?'Denied; manual entry still works.':err?.code===3?'Timed out; manual entry still works.':'Unavailable; manual entry still works.';updatePermissionDisplay();},
+        {enableHighAccuracy:false,maximumAge:0,timeout:10000}
+      );
+    } catch {permissionState.locationTest='Browser blocked location; use manual entries.';updatePermissionDisplay();}
+  }
+  function requestPersistentStorage() {
+    if(!navigator.storage?.persist){permissionState.storage='Not supported';updatePermissionDisplay();return;}
+    // Must be called synchronously in the user's click gesture. Permission is
+    // browser-managed and is never represented as guaranteed protection.
+    let result;
+    try {result=navigator.storage.persist();}
+    catch {permissionState.storage='Request unavailable';updatePermissionDisplay();return;}
+    Promise.resolve(result).then(granted=>{
+      permissionState.storage=granted?'Persistent storage granted':'Not granted (best-effort)';updatePermissionDisplay();
+    }).catch(()=>{permissionState.storage='Request failed (best-effort)';updatePermissionDisplay();});
+  }
+  function webCrypto() {
+    const c=typeof crypto==='object'?crypto:null;
+    if(!c?.subtle?.deriveKey||!c.getRandomValues)throw new Error('Encrypted backups require a secure browser with Web Crypto (HTTPS or localhost).');
+    return c;
+  }
+  function toBase64(bytes) {
+    let binary='';
+    for(let offset=0;offset<bytes.length;offset+=8192)binary+=String.fromCharCode(...bytes.subarray(offset,offset+8192));
+    return btoa(binary);
+  }
+  function fromBase64(value,maxBytes) {
+    if(typeof value!=='string'||value.length>Math.ceil(maxBytes/3)*4+4||value.length%4!==0||!/^[A-Za-z0-9+/]*={0,2}$/.test(value))
+      throw new Error('Damaged encrypted-backup encoding.');
+    const bytes=Uint8Array.from(atob(value),x=>x.charCodeAt(0));
+    if(bytes.length>maxBytes)throw new Error('Encrypted backup is too large.');
+    return bytes;
+  }
+  async function backupKey(password,salt,iterations) {
+    const c=webCrypto(),encoded=new TextEncoder().encode(password);
+    try {
+      const material=await c.subtle.importKey('raw',encoded,'PBKDF2',false,['deriveKey']);
+      return await c.subtle.deriveKey({name:'PBKDF2',salt,iterations,hash:'SHA-256'},material,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+    } finally {encoded.fill(0);}
+  }
+  async function exportEncryptedBackup() {
+    if(recoveryRaw!==null)throw new Error('Current records are unreadable. Download the original records from the recovery banner first.');
+    const first=field('p2c-export-password'),second=field('p2c-export-confirm');
+    const password=first?.value||'',confirmPassword=second?.value||'';
+    if(password.length<12||password.length>256)throw new Error('Choose a password between 12 and 256 characters.');
+    if(password!==confirmPassword)throw new Error('Passwords do not match.');
+    first.value='';second.value='';
+    const c=webCrypto(),salt=c.getRandomValues(new Uint8Array(16)),iv=c.getRandomValues(new Uint8Array(12));
+    const key=await backupKey(password,salt,BACKUP_KDF_ITERATIONS);
+    const ciphertext=new Uint8Array(await c.subtle.encrypt({name:'AES-GCM',iv,tagLength:128},key,new TextEncoder().encode(JSON.stringify(data))));
+    const envelope={format:ENCRYPTED_BACKUP_FORMAT,formatVersion:ENCRYPTED_BACKUP_VERSION,schemaVersion:VERSION,
+      createdAt:new Date().toISOString(),kdf:{name:'PBKDF2',hash:'SHA-256',iterations:BACKUP_KDF_ITERATIONS,salt:toBase64(salt)},
+      cipher:{name:'AES-GCM',iv:toBase64(iv),tagLength:128,ciphertext:toBase64(ciphertext)}};
+    downloadBackup(JSON.stringify(envelope,null,2),'disaster-management-encrypted-backup.json');
+  }
+  function validateEncryptedEnvelope(raw) {
+    if(!raw||typeof raw!=='object'||Array.isArray(raw)||raw.format!==ENCRYPTED_BACKUP_FORMAT||raw.formatVersion!==ENCRYPTED_BACKUP_VERSION||raw.schemaVersion!==VERSION
+      ||raw.kdf?.name!=='PBKDF2'||raw.kdf.hash!=='SHA-256'||!Number.isInteger(raw.kdf.iterations)||raw.kdf.iterations<BACKUP_KDF_ITERATIONS||raw.kdf.iterations>2000000
+      ||raw.cipher?.name!=='AES-GCM'||raw.cipher.tagLength!==128)throw new Error('Unsupported encrypted backup format, schema or algorithm.');
+    const salt=fromBase64(raw.kdf.salt,16),iv=fromBase64(raw.cipher.iv,12),ciphertext=fromBase64(raw.cipher.ciphertext,MAX_BACKUP_FILE_BYTES);
+    if(salt.length!==16||iv.length!==12||ciphertext.length<17)throw new Error('Damaged encrypted backup.');
+    return {salt,iv,ciphertext,iterations:raw.kdf.iterations};
+  }
+  function validateImportCapacity(record) {
+    // Reject records that our v1 normalizer would silently trim. This matters
+    // when restoring records created by a different or future build.
+    if(record.contacts.length>100||record.logs.length>150||record.rules.length>100||
+      (Array.isArray(record.readiness?.custom)&&record.readiness.custom.length>30))
+      throw new Error('Backup contains more entries than this version can retain. Keep the original file and use a compatible app.');
+  }
+  async function unlockEncryptedImport() {
+    const b=pendingImport;if(!b||b.kind!=='locked')return;
+    const entry=field('p2c-unlock-password'),password=entry?.value||'';
+    if(!password)throw new Error('Enter the backup password.');
+    entry.value='';
+    const params=validateEncryptedEnvelope(b.envelope),c=webCrypto();
+    const key=await backupKey(password,params.salt,params.iterations);
+    let result;
+    try {result=await c.subtle.decrypt({name:'AES-GCM',iv:params.iv,tagLength:128},key,params.ciphertext);}
+    catch {throw new Error('Wrong password or damaged encrypted file. Current records were not changed.');}
+    let raw;
+    try {raw=JSON.parse(new TextDecoder().decode(result));}
+    catch {throw new Error('Decrypted contents are not a valid JSON backup.');}
+    const compatible=migrateRecord(raw);
+    if(!compatible)throw new Error('Decrypted backup version or record structure is unsupported. Current records were not changed.');
+    validateImportCapacity(compatible);
+    pendingImport={kind:'ready',record:normalize(compatible),filename:b.filename,encrypted:true,fromSnapshot:false};
+    render();toast('Encrypted backup unlocked locally. Review before restoring.');
+  }
+  function stageImportedJson(raw,filename) {
+    if(raw && typeof raw==='object' && !Array.isArray(raw) && raw.format===ENCRYPTED_BACKUP_FORMAT){
+      validateEncryptedEnvelope(raw);
+      pendingImport={kind:'locked',envelope:raw,filename,encrypted:true,fromSnapshot:false};
+    } else {
+      const compatible=migrateRecord(raw);
+      if(!compatible)throw new Error('Unsupported backup version or format. The existing records remain untouched.');
+      validateImportCapacity(compatible);
+      pendingImport={kind:'ready',record:normalize(compatible),filename,encrypted:false,fromSnapshot:false};
+    }
+    // A recovery-screen import moves to a preview in Settings in memory only.
+    // An incompatible KEY remains untouched and quarantined until Apply.
+    data.page='settings';render();
+  }
+  function previewPreviousSnapshot() {
+    let rawText;
+    try {rawText=localStorage.getItem(PREIMPORT_KEY);}catch {return toast('Previous copy could not be read.');}
+    if(rawText===null)return toast('No previous local copy is available.');
+    let compatible;
+    try {compatible=migrateRecord(JSON.parse(rawText));}catch {compatible=null;}
+    pendingImport=compatible
+      ? {kind:'ready',record:normalize(compatible),filename:'Previous local copy',encrypted:false,fromSnapshot:true,rawBytes:rawText}
+      : {kind:'unreadable',filename:'Previous local copy (unreadable)',encrypted:false,fromSnapshot:true,rawBytes:rawText};
+    render();
+  }
+  function applyStagedImport() {
+    const b=pendingImport;if(!b||!['ready','unreadable'].includes(b.kind))return;
+    if(!confirm('Replace this browser’s Disaster Management records with the selected backup? A local recovery copy is saved first. This cannot be automatically undone.'))return;
+    let current,oldSlot;
+    try {current=localStorage.getItem(KEY);oldSlot=localStorage.getItem(PREIMPORT_KEY);}
+    catch {return toast('Could not access browser storage. Existing records were not changed.');}
+    const replacement=b.fromSnapshot?b.rawBytes:JSON.stringify({...b.record,page:'settings'});
+    try {
+      if(current!==null)localStorage.setItem(PREIMPORT_KEY,current);
+      else localStorage.removeItem(PREIMPORT_KEY);
+    } catch {return toast('Could not save the recovery copy. Existing records were not changed.');}
+    try {localStorage.setItem(KEY,replacement);}
+    catch {
+      // A failed setItem is atomic, so KEY remains intact. Restore the previous
+      // undo slot best-effort without ever erasing the original record.
+      try {if(oldSlot===null)localStorage.removeItem(PREIMPORT_KEY);else localStorage.setItem(PREIMPORT_KEY,oldSlot);}catch {/* retain available recovery bytes */}
+      return toast('Browser storage rejected the backup. Existing records were not replaced.');
+    }
+    recoveryRaw=null;data=load();data.page='settings';pendingImport=null;render();
+    toast(b.kind==='unreadable'?'Original bytes restored; app still needs a compatible version.':'Backup restored. Previous local records are available for review.');
+  }
   function dispatch(name,button) {
     const id=button.dataset.id,index=Number(button.dataset.index);
     if(name==='reload-app')return window.location.reload();
@@ -693,6 +886,18 @@
       document.getElementById('update-notice')?.remove();return;
     }
     if(name==='go') return go(button.dataset.page);
+    if(name==='check-browser-permissions')return checkBrowserPermissions().catch(()=>toast('Could not check browser permissions. Manual features still work.'));
+    if(name==='test-location-once')return testLocationOnce();
+    if(name==='request-persistent-storage')return requestPersistentStorage();
+    if(name==='export-encrypted')return exportEncryptedBackup().catch(err=>toast('Encrypted export: '+err.message));
+    if(name==='unlock-import')return unlockEncryptedImport().catch(err=>toast('Could not unlock: '+err.message));
+    if(name==='cancel-import'){pendingImport=null;return render();}
+    if(name==='preview-previous')return previewPreviousSnapshot();
+    if(name==='download-previous'){
+      try {const raw=localStorage.getItem(PREIMPORT_KEY);return raw===null?toast('No previous copy is available.'):downloadBackup(raw,'disaster-management-previous-local-copy.json');}
+      catch {return toast('Could not read the previous copy.');}
+    }
+    if(name==='apply-import')return applyStagedImport();
     if(name==='sample') {data.scenario=!data.scenario;return update();}
     if(name==='watch-layout') {
       if(['radar','list','card'].includes(button.dataset.layout))watchLayout=button.dataset.layout;
@@ -982,10 +1187,13 @@
     if(name==='erase'){
       const warning=recoveryRaw!==null
         ? 'Erase the saved records that this app cannot currently read? Download the untouched backup first. This cannot be undone without that file.'
-        : 'Erase all Disaster Management records on this browser? This cannot be undone without a backup.';
+        : 'Erase all Disaster Management records AND the local recovery copy on this browser? This cannot be undone without an external backup.';
       if(!confirm(warning))return;
-      try {localStorage.removeItem(KEY);}catch {return toast('Could not remove the saved records. No data was erased.');}
-      recoveryRaw=null;data=defaults();update();return toast('Local app records erased.');
+      // Only these two app-owned keys are in scope. Never clear same-origin
+      // storage globally: other Celeritas7 apps may live on this origin.
+      try {localStorage.removeItem(PREIMPORT_KEY);localStorage.removeItem(KEY);}
+      catch {return toast('Could not complete erasure. Review browser site storage if needed.');}
+      pendingImport=null;recoveryRaw=null;data=defaults();update();return toast('App records and local recovery copy erased.');
     }
     if(name==='tour-next'){
       if(data.tourStep<TOUR.length-1){data.tourStep++;return update();}
@@ -1019,17 +1227,14 @@
     }
     if(event.target.id==='import-json'||event.target.id==='import-recovery-json'){
       const file=event.target.files?.[0];if(!file)return;
+      // A new selection invalidates the old preview, even when the new file
+      // is damaged. Never leave an old "Apply" action pointing at stale data.
+      pendingImport=null;
       try {
-        if(file.size>1_000_000)throw new Error('Backup must be smaller than 1 MB.');
+        if(file.size>MAX_BACKUP_FILE_BYTES)throw new Error('Backup must be smaller than 2 MB.');
         const raw=JSON.parse(await file.text());
-        const compatible=migrateRecord(raw);
-        if(!compatible)throw new Error('Unsupported backup version or format. The existing records remain untouched.');
-        if(!confirm('Replace all existing records in this browser with this backup?')){render();return;}
-        const restored=normalize(compatible);restored.page='settings';
-        try {localStorage.setItem(KEY,JSON.stringify(restored));}
-        catch {throw new Error('Browser storage rejected the backup; original records were not replaced.');}
-        data=restored;recoveryRaw=null;render();toast('Backup imported into this browser.');
-      } catch(err){toast('Could not import: '+err.message);} finally {event.target.value='';}
+        stageImportedJson(raw,(file.name||'Selected JSON backup').slice(0,120));
+      } catch(err){render();toast('Could not import: '+err.message);} finally {event.target.value='';}
       return;
     }
     if(event.target.id==='incident-note'){data.incident.note=event.target.value.slice(0,700);save();}

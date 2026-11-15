@@ -35,7 +35,7 @@ This is a **functional local-first MVP**, not an emergency-alert service:
 
 ## Development
 
-No build step or external dependencies are required. Serve `dist/` over HTTPS (or localhost for development).
+No build step or external dependencies are required. The **app shell is in the repository root** (`index.html`, `app.js`, styles and service worker). Serve that root over HTTPS (or localhost for development).
 
 The application is implemented with plain JavaScript, accessible HTML and CSS. Its state key is `disaster-management:v1`.
 
@@ -43,9 +43,7 @@ Phase 2C implementation/security details and future synchronization gates are do
 
 ## Publishing on GitHub Pages
 
-The repository includes `.github/workflows/deploy-pages.yml`. On a push to `main`, it uploads `dist/` and deploys it to GitHub Pages.
-
-In the GitHub repository's **Settings → Pages**, select **GitHub Actions** as the build and deployment source. For a project repository, the published URL normally ends with the repository name. All asset URLs are relative to support that subpath.
+The repository currently contains a safety-check GitHub Actions workflow, **not** an automatic deployment workflow. The root HTML/CSS/JS files are ready for project-site hosting, subject to the repository's GitHub Pages configuration. A review branch or pull request is not a deployment. All asset URLs are relative to support the project subpath.
 
 Publishing source code does not upload or expose your personal readiness records, addresses or contacts, which stay in your own browser's localStorage. If a user opens the site on another device, they start with empty records unless they import a backup.
 

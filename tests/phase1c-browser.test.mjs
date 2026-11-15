@@ -125,7 +125,9 @@ test('Phase 1C Night Out, after-action, log, settings, mobile layout and offline
   await picture('log-rules-412.png');
 
   await page.locator('.bottom-nav [data-page="readiness"]').click();
-  await page.locator('[data-action="go"][data-page="settings"]').first().click();
+  // On mobile the desktop sidebar is intentionally hidden. Navigate through
+  // the visible Readiness shortcut instead of selecting its hidden counterpart.
+  await page.locator('#main-content [data-action="go"][data-page="settings"]').click();
   await page.getByRole('heading',{name:'Clarity and control.'}).waitFor();
   for(const name of ['sources','privacy','thresholds','offline','details','data'])assert.equal(await page.locator('#p1c-'+name).count(),1);
   await picture('settings-412.png');

@@ -11,7 +11,7 @@ try {({chromium}=createRequire(import.meta.url)('playwright'));}
 catch {/* GitHub Actions installs the browser test dependency. */}
 const root=process.env.DMA_TEST_ROOT || join(dirname(fileURLToPath(import.meta.url)),'..');
 const prefix='/Disaster_management_app/';
-const files=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','service-worker.js','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
+const files=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','phase2a.css','service-worker.js','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 
 test('Phase 1B screens, recovery, large controls and offline reload work on mobile', {timeout:120000},async t=>{

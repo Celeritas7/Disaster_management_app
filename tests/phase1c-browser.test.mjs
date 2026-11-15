@@ -11,7 +11,7 @@ try {({chromium}=createRequire(import.meta.url)('playwright'));}
 catch {/* GitHub Actions installs Playwright. */}
 const root=process.env.DMA_TEST_ROOT||join(dirname(fileURLToPath(import.meta.url)),'..');
 const prefix='/Disaster_management_app/';
-const files=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','service-worker.js','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
+const files=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','phase2a.css','service-worker.js','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 
 test('Phase 1C Night Out, after-action, log, settings, mobile layout and offline persistence', {timeout:180000},async t=>{
@@ -157,7 +157,7 @@ test('Phase 1C Night Out, after-action, log, settings, mobile layout and offline
     return {blocked,caches:await caches.keys(),profile:JSON.parse(localStorage.getItem('disaster-management:v1')).profile};
   });
   assert.equal(check.blocked,true);
-  assert.ok(check.caches.includes('disaster-management-app-v6'));
+  assert.ok(check.caches.includes('disaster-management-app-v7'));
   assert.equal(check.profile.home,'My saved home');
   assert.deepEqual(errors,[]);
 });

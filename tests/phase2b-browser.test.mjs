@@ -11,7 +11,7 @@ try {({chromium}=createRequire(import.meta.url)('playwright'));}
 catch {/* Browser dependency is installed in CI; local skip only if optional. */}
 const root=process.env.DMA_TEST_ROOT||join(dirname(fileURLToPath(import.meta.url)),'..');
 const prefix='/Disaster_management_app/';
-const files=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','phase2a.css','phase2b.css','phase2c.css','phase3a.css','service-worker.js','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
+const files=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','phase2a.css','phase2b.css','phase2c.css','phase3a.css','phase3b.css','service-worker.js','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
 const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 const todayJST=days=>new Date(Date.now()+9*3600000+days*86400000).toISOString().slice(0,10);
 
@@ -125,7 +125,7 @@ test('Phase 2B inventory, legacy checks, real mobile controls, backup and offlin
   await page.reload({waitUntil:'domcontentloaded',timeout:15000});
   await page.getByRole('heading',{name:'A kit you can actually review.'}).waitFor();
   const offline=await page.evaluate(async()=>({caches:await caches.keys(),record:JSON.parse(localStorage.getItem('disaster-management:v1'))}));
-  assert.ok(offline.caches.includes('disaster-management-app-v10'));
+  assert.ok(offline.caches.includes('disaster-management-app-v11'));
   assert.equal(offline.record.readiness.custom[0].title,'Prescription glasses');
   assert.equal(offline.record.readiness.items.water.quantity,9);
   assert.equal(offline.record.logs[0].note,'Keep me');

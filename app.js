@@ -112,6 +112,17 @@
   const PLACE_FIELDS = ['home','office','safePlace','station','shelter'];
   const CONTACT_ROLES = ['unspecified','primary','backup','work','other'];
   const CONTACT_ROLE_LABELS = {unspecified:'Role not assigned',primary:'Primary contact',backup:'Backup contact',work:'Work / colleague',other:'Other trusted person'};
+  // Editable, local-only SMS composition. "Safe" and "need help" are never
+  // inferred from an incident, readiness score, saved address or GPS.
+  const SMS_TEMPLATES = [
+    {id:'checkin',label:'Request a check-in · 安否を確認',en:'Please let me know if you are safe when you can. I will update you when possible.',ja:'落ち着いたら、無事かどうか教えてください。こちらからも可能なときに連絡します。'},
+    {id:'safe',label:'I am safe right now · 今は無事',en:'I am safe right now. I will contact you again when possible.',ja:'今は無事です。また連絡できるときに連絡します。'},
+    {id:'help',label:'I need help · 助けが必要',en:'I need help. Please contact me if you can.',ja:'助けが必要です。可能なら連絡してください。'}
+  ];
+  const SMS_LANGUAGES = ['en','ja','both'];
+  const SMS_STATUSES = ['unsent','draft-opened','user-confirmed-sent'];
+  const CONTACT_ID = /^c-[1-9]\d{0,8}$/;
+  const emptyCommunication = () => ({template:'checkin',language:'both',currentLocation:'',selected:[],entries:{},pendingId:''});
   const TOUR = [
     {jp:'はじめに',title:'A quiet watcher for a loud country.',body:'Disaster Management helps you prepare and walks you through difficult moments. Its first version works manually, even without a live feed.',points:[['Guided seven-step earthquake response','Offline guide'],['Checklist, contacts and safety notes','Saved here'],['Weather and quake monitoring','Not connected']]},
     {jp:'持ち出し',title:'Make your emergency kit visible.',body:'A readiness score is only useful when it reflects things you have genuinely checked.',points:[['Mark each item when verified','No assumptions'],['Prepare water, food and a go-bag','Your checklist'],['Remember to review dates','Manual']]},
@@ -191,7 +202,7 @@
   function defaults() {
     return {version:VERSION,page:'watch',tourStep:0,tourDone:false,profile:{home:'',office:'',shelter:'',safePlace:'',station:'',shelterSource:'',placeChecks:{}},
       checks:{},readiness:{items:{},custom:[],nextCustomId:1,embassy:{status:'unknown',updatedAt:''}},
-      contacts:[],incident:{active:false,step:1,done:{},contacted:[],note:'',oneStep:false,cursor:{},outcomes:{},stepOutcomes:{},paused:false,lowPower:false},
+      contacts:[],nextContactId:1,incident:{active:false,step:1,done:{},contacted:[],note:'',oneStep:false,cursor:{},outcomes:{},stepOutcomes:{},paused:false,lowPower:false,communication:emptyCommunication()},
       departure:{wallet:false,pass:false,phone:false,keys:false},strandedStep:0,
       night:{phase:'idle',limit:2,budget:3000,leave:'23:30',leaveAt:null,mode:'train',drinks:0,spent:0,note:'',costHistory:[]},
       scenario:false,logs:[],rules:[]};
@@ -233,9 +244,19 @@
     const embassy=obj(readiness.embassy);
     d.readiness.embassy={status:EMBASSY_STATUSES.includes(embassy.status)?embassy.status:'unknown',
       updatedAt:validInventoryDate(embassy.updatedAt)?embassy.updatedAt:''};
-    d.contacts=(Array.isArray(raw.contacts)?raw.contacts:[]).filter(c=>c&&typeof c.name==='string'&&typeof c.phone==='string')
-      .slice(0,100).map(c=>({name:str(c.name,70),phone:str(c.phone,26),
-        role:CONTACT_ROLES.includes(c.role)?c.role:'unspecified'}));
+    const rawContacts=(Array.isArray(raw.contacts)?raw.contacts:[]).filter(c=>c&&typeof c.name==='string'&&typeof c.phone==='string').slice(0,100);
+    const reserved=new Set(rawContacts.map(c=>c.id).filter(id=>typeof id==='string'&&CONTACT_ID.test(id)));
+    const assigned=new Set();let generated=1;
+    d.contacts=rawContacts.map(c=>{
+      let id=c.id;
+      if(typeof id!=='string'||!CONTACT_ID.test(id)||assigned.has(id)){
+        while(reserved.has('c-'+generated)||assigned.has('c-'+generated))generated++;
+        id='c-'+generated++;
+      }
+      assigned.add(id);
+      return {id,name:str(c.name,70),phone:str(c.phone,26),role:CONTACT_ROLES.includes(c.role)?c.role:'unspecified'};
+    });
+    d.nextContactId=Math.max(num(raw.nextContactId,1_000_000_000,1),...d.contacts.map(c=>Number(c.id.slice(2))+1),1);
     for(const k of Object.keys(d.departure)) d.departure[k]=!!obj(raw.departure)[k];
     d.strandedStep=num(raw.strandedStep,STRANDED.length-1);
     const incident=obj(raw.incident);
@@ -251,6 +272,32 @@
     d.incident.oneStep=!!incident.oneStep;
     d.incident.paused=!!incident.paused && d.incident.active;
     d.incident.lowPower=!!incident.lowPower;
+    // Phase 3B adds optional v1 fields. Missing communication records are
+    // always UNSENT, including old `incident.contacted` (a separate manual mark).
+    const communication=obj(incident.communication),state=d.incident.communication;
+    state.template=SMS_TEMPLATES.some(x=>x.id===communication.template)?communication.template:'checkin';
+    state.language=SMS_LANGUAGES.includes(communication.language)?communication.language:'both';
+    state.currentLocation=str(communication.currentLocation,120);
+    const existingIds=new Set(d.contacts.map(c=>c.id));
+    state.selected=(Array.isArray(communication.selected)?communication.selected:[])
+      .filter(id=>typeof id==='string'&&existingIds.has(id)).filter((id,k,all)=>all.indexOf(id)===k);
+    const validSavedTime=value=>typeof value==='string'&&/^20\d\d-\d\d-\d\dT\d\d:\d\d:\d\d/.test(value)
+      && Number.isFinite(Date.parse(value));
+    for(const [id,rawEntry] of Object.entries(obj(communication.entries))){
+      if(!existingIds.has(id))continue;
+      const entry=obj(rawEntry),contact=d.contacts.find(c=>c.id===id);
+      const requestedAt=validSavedTime(entry.requestedAt)?str(entry.requestedAt,35):'';
+      const openedAt=validSavedTime(entry.openedAt)?str(entry.openedAt,35):'';
+      const confirmedAt=validSavedTime(entry.confirmedAt)?str(entry.confirmedAt,35):'';
+      let status=SMS_STATUSES.includes(entry.status)?entry.status:'unsent';
+      if((status==='draft-opened'&&!openedAt)||(status==='user-confirmed-sent'&&!confirmedAt)||(!requestedAt&&status!=='unsent'))status='unsent';
+      state.entries[id]={name:str(entry.name,70)||contact.name,phone:str(entry.phone,26)||contact.phone,
+        status,requestedAt,openedAt,confirmedAt,
+        skipped:!!entry.skipped};
+    }
+    if(typeof communication.pendingId==='string'&&state.selected.includes(communication.pendingId)
+      &&state.entries[communication.pendingId]?.requestedAt
+      &&state.entries[communication.pendingId].status==='unsent')state.pendingId=communication.pendingId;
     for(const [stepNumber,result] of Object.entries(obj(incident.stepOutcomes))){
       if(/^[1-7]$/.test(stepNumber) && ['cant','skip'].includes(result))
         d.incident.stepOutcomes[stepNumber]=result;
@@ -539,6 +586,48 @@
       ${step.n===4?`<p>${link('https://www.jma.go.jp/bosai/','JMA live warnings (online)')}</p>`:''}
     </div></details>`;
   }
+  function communicationPanel() {
+    const state=data.incident.communication,selected=new Set(state.selected);
+    const pending=data.contacts.find(c=>c.id===state.pendingId);
+    const next=selectedContacts().find(c=>{
+      const entry=state.entries[c.id];
+      return !entry || (entry.status==='unsent'&&!entry.skipped&&!entry.requestedAt);
+    });
+    const statusText=(entry,id)=>{
+      if(id===state.pendingId)return ['Draft requested · outcome unverified','pending'];
+      if(entry?.status==='user-confirmed-sent')return ['User confirmed Send · delivery UNKNOWN','sent'];
+      if(entry?.status==='draft-opened')return ['Draft opened · user-reported, not sent-confirmed','opened'];
+      return [entry?.skipped?'Unsent · skipped for now':'Unsent · no draft confirmed','unsent'];
+    };
+    return `<section class="incident-step-card p3b-communication" aria-label="Emergency SMS communication">
+      <div class="p3b-heading"><div><span class="sublabel">PHASE 3B · MANUAL COMMUNICATION</span><h2>Emergency messages · 緊急連絡</h2></div><span class="p3b-local">LOCAL ONLY · NO AUTO-SEND</span></div>
+      <p>Choose the message that is <strong>true right now</strong>. No safety status or current location is inferred from your home address, shelter, readiness checks or the network. For immediate danger, use <a href="tel:119">119</a> or <a href="tel:110">110</a>; SMS may be delayed.</p>
+      <fieldset class="p3b-choices"><legend>Message type · 状況</legend>${SMS_TEMPLATES.map(t=>`<label><input type="radio" name="sms-template" data-communication-template="${t.id}" ${state.template===t.id?'checked':''}/><span>${safe(t.label)}</span></label>`).join('')}</fieldset>
+      <fieldset class="p3b-choices p3b-languages"><legend>Message language · 言語</legend>${[['en','English'],['ja','日本語'],['both','English + 日本語']].map(([value,label])=>`<label><input type="radio" name="sms-language" data-communication-language="${value}" ${state.language===value?'checked':''}/><span>${label}</span></label>`).join('')}</fieldset>
+      <div class="text-field p3b-location"><label for="sms-current-location">Current location · optional, typed by you</label><input id="sms-current-location" maxlength="120" autocomplete="off" value="${safe(state.currentLocation)}" placeholder="Only if you know where you are now"/><small>Never copied from your saved home, office, safe place or shelter. This entry stays in local v1 records and backups until you finish/reset the guide. Clear it if it becomes outdated.</small></div>
+      <div class="p3b-preview" aria-label="SMS text preview"><div class="sublabel">REVIEW EXACT MESSAGE BEFORE SENDING</div><p id="p3b-message-preview">${safe(safetyMessage())}</p>${action('copy-message',icon('copy','sm')+' Copy this text','btn-primary btn-sm')}<small>Copying is not sending. An SMS app may ignore the prefilled body; on iPhone/iPad, copy and paste it manually. Bilingual messages may use multiple billable SMS segments.</small></div>
+      <div class="p3b-heading"><h3>Select contacts in saved priority order</h3><small>${selected.size} selected · one draft at a time</small></div>
+      ${data.contacts.length?`<div class="p3b-recipient-list">${data.contacts.map((c,k)=>{
+        const entry=state.entries[c.id],chosen=selected.has(c.id),[label,kind]=statusText(entry,c.id);
+        const stale=!!entry&&entry.phone!==c.phone;
+        const valid=!!phoneForComposer(c.phone);
+        return `<div class="p3b-recipient ${chosen?'is-selected':''}" data-contact-id="${safe(c.id)}"><div class="p3b-recipient-title"><div><strong>${k+1}. ${safe(c.name)}</strong><small>${safe(contactRole(c.role))} · ${safe(c.phone)}</small></div>${action('communication-select',chosen?'Remove from queue':'Select',chosen?'btn-outline btn-sm':'btn-quiet btn-sm',`data-id="${safe(c.id)}" aria-pressed="${chosen}"`)}</div>
+          <div class="p3b-recipient-status"><span class="p3b-status ${kind}">${safe(label)}</span>${stale?'<strong class="p3b-stale">Phone changed; old draft cannot be reused.</strong>':''}${!valid?'<strong class="p3b-stale">Invalid phone — edit in Settings.</strong>':''}</div>
+          <div class="p3b-recipient-actions">${action('sms-contact','Review SMS draft','btn-outline btn-sm',`data-index="${k}" ${!valid||stale||state.pendingId||entry?.status==='user-confirmed-sent'||entry?.status==='draft-opened'?'disabled':''}`)}
+            ${entry?.status==='draft-opened'?action('communication-confirm-sent','I tapped Send','btn-success btn-sm',`data-id="${safe(c.id)}"`):''}
+            ${entry?.status==='draft-opened'?action('communication-no-send','Did not send','btn-outline btn-sm',`data-id="${safe(c.id)}"`):''}
+            ${(entry?.skipped||stale||entry?.status==='user-confirmed-sent')?action('communication-reset','Start new draft','btn-quiet btn-sm',`data-id="${safe(c.id)}"`):''}
+            ${action('incident-contact',data.incident.contacted.includes(k)?'Reached ✓ (manual)':'Mark reached (manual)',data.incident.contacted.includes(k)?'btn-success btn-sm':'btn-outline btn-sm',`data-index="${k}"`)}
+          </div></div>`;
+      }).join('')}</div>`:`<div class="info-band amber">${icon('info')}<div>No contacts saved. Add a person in Settings first, or copy the message manually. ${action('go','Add contacts','btn-quiet btn-sm','data-page="settings"')}</div></div>`}
+      <div class="p3b-queue"><strong>Sequential composition · 一人ずつ</strong><p>Each tap requests a draft for <strong>one recipient only</strong>. After the SMS app, return here and report what actually happened. Nothing is sent automatically.</p>
+        ${action('communication-next',next?'Open next draft · '+safe(next.name):'No unreviewed recipient', 'btn-primary',`aria-label="Open next SMS draft" ${!next||state.pendingId?'disabled':''}`)}
+        <small>${next?'Next by priority: '+safe(next.name):'Select at least one contact, or review/reset earlier attempts.'} · SMS app availability and delivery are unknown.</small></div>
+      ${pending?`<div class="p3b-pending" role="status"><strong>Draft requested for ${safe(pending.name)} · outcome NOT verified</strong><p>The app cannot tell whether the SMS composer actually opened. If you sent it yourself, report that; otherwise keep it unsent or acknowledge seeing the draft. This choice stays saved if you leave and return.</p><div class="p3b-pending-actions">${action('communication-confirm-open','I saw the draft open','btn-outline btn-sm',`data-id="${safe(pending.id)}"`)}${action('communication-confirm-sent','I tapped Send in SMS app','btn-success btn-sm',`data-id="${safe(pending.id)}"`)}${action('communication-no-send','Not sent / could not open','btn-quiet btn-sm',`data-id="${safe(pending.id)}"`)}</div></div>`:''}
+      <p class="p3b-disclaimer"><strong>Delivery status is always UNKNOWN.</strong> “User confirmed Send” means you reported tapping Send, not that a carrier accepted it or the recipient received it. “Reached (manual)” is a separate note, including in older records; it never proves an SMS was delivered.</p>
+      <div class="info-band blue" style="margin-top:18px">${icon('phone')}<div><strong>Disaster Message Dial 171 · 災害用伝言ダイヤル</strong><br>This is <strong>not an always-on service</strong>. NTT activates 171 during eligible disasters and announced practice periods. Availability is <strong>unknown in this offline app</strong>. When offered, <a href="tel:171">dial 171</a> (or enter 171 manually), follow voice prompts: 1 to record or 2 to play, then the requested phone-number steps. <a href="https://www.ntt-east.co.jp/saigai/voice171s/rec.html" target="_blank" rel="noopener noreferrer">NTT instructions</a> · <a href="https://www.ntt-east.co.jp/saigai/news/" target="_blank" rel="noopener noreferrer">current availability (requires internet)</a>. The app cannot call or verify a recording.</div></div>
+    </section>`;
+  }
   function incidentBody(step) {
     const i=data.incident,done=i.done[i.step]||[];
     if(step.n===1) return `<section class="p1b-incident-card p1b-call-card"><p>Call if anyone needs urgent medical assistance or is in danger. These links open the dialer; the app does not place a call by itself.</p><div class="p1b-call-buttons"><a class="p1b-call-primary" href="tel:119"><span><strong>Yes — call 119</strong><small>救急・消防 · Ambulance / Fire</small></span>${icon('phone','lg')}</a><a class="p1b-call-secondary" href="tel:110"><span><strong>Danger / crime — 110</strong><small>警察 · Police</small></span>${icon('phone','lg')}</a></div><div class="p1b-phone-script"><span>SAY ON THE PHONE · 日本語</span><strong>救急です。今いる場所は［現在地を確認］です。</strong><small>“I need an ambulance. My current location is …” Give the dispatcher your ACTUAL location or a nearby landmark.</small>${data.profile.home?`<small>Saved home address (NOT assumed to be your current position): ${safe(data.profile.home)}</small>`:''}</div></section>`;
@@ -555,11 +644,7 @@
         ${step.n===7?`<div class="text-field" style="margin-top:20px"><label for="incident-note">What happened / what to improve</label><textarea id="incident-note" data-save-field="incident.note" placeholder="For your private incident log…">${safe(i.note)}</textarea></div>`:''}
       </section>`;
     }
-    if(step.n===3) return `<section class="incident-step-card"><h3>Draft a safety message</h3><p>Check the details before sending. Copying or opening SMS does not mean a message was delivered.</p>
-      <div class="card-soft card-pad"><div class="sublabel">MESSAGE · ENGLISH / 日本語</div><p style="color:#e8efff;font-size:15px">${safe(safetyMessage())}</p><p style="color:#b3bfd6;font-size:14px">無事です。今は${safe(data.profile.safePlace||'［現在地］')}にいます。また連絡します。</p>${action('copy-message',icon('copy','sm')+' Copy message','btn-primary')}</div>
-      <div class="section-heading"><h2>Emergency contacts</h2><small>${data.contacts.length} saved</small></div>
-      ${data.contacts.length?data.contacts.map((c,k)=>`<div class="contact-row"><div><div class="contact-name">${safe(c.name)}</div><div class="contact-meta">${safe(contactRole(c.role))} · ${safe(c.phone)} · Priority ${k+1}</div></div><div class="form-actions" style="margin:0">${action('sms-contact','Review SMS draft','btn-outline btn-sm',`data-index="${k}"`)}${action('incident-contact',i.contacted.includes(k)?'Reached ✓':'Mark reached',i.contacted.includes(k)?'btn-success btn-sm':'btn-outline btn-sm',`data-index="${k}"`)}</div></div>`).join(''):`<div class="info-band amber">${icon('info')}<div>No contacts saved yet. Add them from Settings. ${action('go','Add contacts','btn-quiet btn-sm','data-page="settings"')}</div></div>`}
-      <div class="info-band blue" style="margin-top:18px">${icon('phone')}<div><strong>Disaster Message Dial 171 · 災害用伝言ダイヤル</strong><br>This is <strong>not an always-on service</strong>. NTT activates 171 during eligible disasters and announced practice periods. Availability is <strong>unknown in this offline app</strong>. When offered, <a href="tel:171">dial 171</a> (or enter 171 manually), follow voice prompts: 1 to record or 2 to play, then the requested phone-number steps. <a href="https://www.ntt-east.co.jp/saigai/voice171s/rec.html" target="_blank" rel="noopener noreferrer">NTT instructions</a> · <a href="https://www.ntt-east.co.jp/saigai/news/" target="_blank" rel="noopener noreferrer">current availability (requires internet)</a>. The app cannot call or verify a recording.</div></div></section>`;
+    if(step.n===3) return communicationPanel();
     if(step.n===4) return `<section class="incident-step-card"><h3>Use current, verified warnings.</h3><p>This app has no live quake, tsunami, shelter availability or route feed. <strong>Tsunami status: UNKNOWN.</strong> At the coast, leave for higher, safer ground promptly after strong or long shaking without waiting for an alert. Never rely on a demonstration map for evacuation.</p>
       <div class="callout-steps"><div class="callout"><strong class="red">LEAVE IMMEDIATE DANGER</strong><ul><li>Fire, smoke or gas hazard</li><li>Serious structural damage</li><li>Tsunami warning / official order</li><li>Other imminent risk</li></ul></div><div class="callout neutral"><strong class="green">IF SHELTERING IN PLACE</strong><ul><li>Make sure conditions remain safe</li><li>Monitor official instructions</li><li>Keep exits clear</li><li>Be ready to move if advised</li></ul></div></div>
       <div class="card-soft card-pad" style="margin-top:15px"><div class="sublabel">YOUR SAVED SHELTER · SELF-REPORTED</div><h3 style="font-size:18px;margin:10px 0 4px">${safe(data.profile.shelter||'Not saved yet')}</h3><p>${safe(checkedPlace('shelter'))}. ${data.profile.shelter?'Check the latest municipality instructions, accessibility and route again before travelling. The app has not verified availability.':'Add an officially designated shelter from your municipality’s information in Settings.'}</p>${data.profile.shelterSource?`<p><strong>Your source note:</strong> ${safe(data.profile.shelterSource)}</p>`:''}${action('go','Review shelter','btn-outline btn-sm','data-page="settings"')}</div>
@@ -761,8 +846,50 @@
     document.title='Disaster Management · '+({watch:'Watch',readiness:'Readiness',incident:'Emergency guide',departure:'Departure check',stranded:'Stranded options',night:'Night Out',log:'Activity log',settings:'Settings',reflection:'After-action',onboard:'Setup'}[data.page]||'Watch');
   }
   function safetyMessage() {
-    const location=data.profile.safePlace || data.profile.home || '[your location]';
-    return 'I am safe. I am at '+location+'. I will contact you again when possible.';
+    const state=data.incident.communication;
+    const template=SMS_TEMPLATES.find(x=>x.id===state.template)||SMS_TEMPLATES[0];
+    // The home, office, safe place and shelter fields are intentionally never
+    // inserted here: none establishes where the user actually is right now.
+    const place=state.currentLocation.trim();
+    const en=template.en+(place?' Current location (entered by me): '+place+'.':'');
+    const ja=template.ja+(place?' 今いる場所（自分で入力）：'+place+'。':'');
+    return state.language==='en'?en:state.language==='ja'?ja:en+'\n'+ja;
+  }
+  function communicationEntry(contact) {
+    const state=data.incident.communication;
+    return state.entries[contact.id] ||= {name:contact.name,phone:contact.phone,status:'unsent',
+      requestedAt:'',openedAt:'',confirmedAt:'',skipped:false};
+  }
+  function selectedContacts() {
+    const ids=new Set(data.incident.communication.selected);
+    return data.contacts.filter(contact=>ids.has(contact.id)); // Settings priority order.
+  }
+  function smsForIOS() {
+    // Apple's published sms: URL scheme documents a recipient, not a body.
+    // Use copy/paste instead of promising text prefill on these devices.
+    return /iPad|iPhone|iPod/i.test(navigator.userAgent||'') ||
+      (navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  }
+  function openCommunicationDraft(contact) {
+    const state=data.incident.communication;
+    if(state.pendingId)return toast('Resolve the previous SMS draft request before opening another.');
+    if(!contact)return toast('Choose a saved recipient first.');
+    const phone=phoneForComposer(contact.phone);
+    if(!phone)return toast('This number is invalid. Correct it in Settings before opening SMS.');
+    const entry=communicationEntry(contact);
+    if(entry.phone!==contact.phone)return toast('This phone number changed. Reset the recipient draft before using the new number.');
+    if(entry.status==='user-confirmed-sent')return toast('You already reported tapping Send for this contact. Reset deliberately to draft again.');
+    if(entry.status==='draft-opened')return toast('Resolve the opened draft or reset this contact before requesting another.');
+    const template=SMS_TEMPLATES.find(t=>t.id===state.template);
+    const warning=state.currentLocation.trim()?' The location text was manually entered in this guide.':'';
+    if(!confirm('Open a new SMS draft to '+contact.name+' ('+phone+')? Message type: '+template.label+'. Confirm it describes your current situation. Review the recipient and text in your SMS app before tapping Send.'+warning+' This app cannot verify that a draft opens, that you tap Send, or that delivery succeeds.'))return;
+    if(!state.selected.includes(contact.id))state.selected.push(contact.id);
+    entry.requestedAt=new Date().toISOString();entry.skipped=false;
+    state.pendingId=contact.id;data.incident.active=true;
+    save();render();
+    const body=safetyMessage();
+    window.location.href='sms:'+phone+(smsForIOS()?'':'?body='+encodeURIComponent(body));
+    return toast(smsForIOS()?'SMS app requested. On iPhone/iPad, copy and paste the preview manually.':'SMS draft requested. If the body is missing, copy and paste the preview manually.');
   }
   function addLog(title,note,kind='manual',status='recorded') {
     data.logs.unshift({date:when(),title,note:note||'',kind,status});
@@ -1100,27 +1227,64 @@
       return update();
     }
     if(name==='incident-contact'){const a=new Set(data.incident.contacted||[]);if(a.has(index))a.delete(index);else a.add(index);data.incident.contacted=[...a];return update();}
+    if(name==='communication-select'){
+      const state=data.incident.communication,contact=data.contacts.find(c=>c.id===id);
+      if(!contact)return;
+      if(state.pendingId)return toast('First report what happened to the pending SMS draft.');
+      if(state.selected.includes(id))state.selected=state.selected.filter(x=>x!==id);
+      else {
+        if(!phoneForComposer(contact.phone))return toast('Correct this number in Settings before selecting it.');
+        state.selected.push(id);communicationEntry(contact);
+      }
+      data.incident.active=true;return update();
+    }
+    if(name==='communication-next'){
+      const state=data.incident.communication;
+      const next=selectedContacts().find(c=>!state.entries[c.id]||
+        (state.entries[c.id].status==='unsent'&&!state.entries[c.id].skipped&&!state.entries[c.id].requestedAt));
+      return next?openCommunicationDraft(next):toast('No unreviewed selected contact. Reset an entry to retry, if needed.');
+    }
+    if(name==='communication-confirm-open'||name==='communication-confirm-sent'||name==='communication-no-send'){
+      const state=data.incident.communication,entry=state.entries[id];
+      if(state.pendingId && state.pendingId!==id)return toast('Resolve the newest SMS draft request first.');
+      if(!entry||!entry.requestedAt||!(state.pendingId===id||(!state.pendingId&&entry.status==='draft-opened')))return;
+      if(name==='communication-confirm-sent'){
+        if(!confirm('Did you personally tap Send for '+entry.name+' ('+entry.phone+') in your SMS app? This records ONLY your report; actual delivery remains UNKNOWN.'))return;
+        entry.status='user-confirmed-sent';entry.confirmedAt=new Date().toISOString();entry.openedAt ||= entry.confirmedAt;
+        addLog('SMS send reported by user','You reported tapping Send to '+entry.name+'. Delivery and receipt remain unknown. No message was sent by this app.','incident','recorded');
+      }else if(name==='communication-confirm-open'){
+        entry.status='draft-opened';entry.openedAt=new Date().toISOString();
+      }else {
+        entry.status='unsent';entry.skipped=true;
+      }
+      if(state.pendingId===id)state.pendingId='';
+      return update();
+    }
+    if(name==='communication-reset'){
+      const state=data.incident.communication,contact=data.contacts.find(c=>c.id===id);
+      if(!contact||state.pendingId)return toast('Resolve the pending SMS draft before starting a new one.');
+      if(!confirm('Start a new UNSENT draft for '+contact.name+'? This resets the visible attempt for this contact, but does not erase earlier activity-log reports.'))return;
+      delete state.entries[id];communicationEntry(contact);return update();
+    }
     if(name==='copy-message') {
       const message=safetyMessage();
       if(navigator.clipboard?.writeText) navigator.clipboard.writeText(message).then(()=>toast('Message copied. Review before sharing.')).catch(()=>toast('Copy not available. Select the message text manually.'));
       else toast('Copy not available in this browser.');
       return;
     }
-    if(name==='sms-contact'){
-      const c=data.contacts[index];if(!c)return;const phone=phoneForComposer(c.phone);
-      if(!phone)return toast('Save a valid phone number first.');
-      if(!confirm('Open a new SMS draft to '+c.name+' ('+phone+')? Check your message, number and current safety before deciding whether to send. This app cannot confirm delivery.'))return;
-      window.location.href='sms:'+phone+'?body='+encodeURIComponent(safetyMessage());
-      return toast('SMS composer requested. Review and send manually if appropriate.');
-    }
+    if(name==='sms-contact')return openCommunicationDraft(data.contacts[index]);
     if(name==='finish-incident'){
       const incident=data.incident;
+      if(incident.communication.pendingId && !confirm('An SMS draft request has an unreported outcome. End this guide and clear the active draft? The app cannot tell if it was sent.'))return;
       const done=Object.values(incident.done).reduce((n,entries)=>n+entries.length,0);
       const outcomes=Object.values(incident.outcomes).flatMap(entries=>Object.values(entries));
       const cant=outcomes.filter(v=>v==='cant').length,skipped=outcomes.filter(v=>v==='skip').length;
       const stepGaps=Object.values(incident.stepOutcomes||{});
+      const messages=Object.values(incident.communication.entries);
+      const sendReports=messages.filter(e=>e.status==='user-confirmed-sent').length;
+      const opened=messages.filter(e=>e.status==='draft-opened').length;
       const note=(field('incident-note')?.value || incident.note || '').trim();
-      addLog('Incident guide reviewed',`Manual guide review only; ${done} items marked done, ${cant} can’t do, ${skipped} skipped; ${stepGaps.filter(v=>v==='cant').length} whole steps could not be done and ${stepGaps.filter(v=>v==='skip').length} whole steps were skipped. Unfinished items are not complete; skipped steps are also unconfirmed.${note?' Note: '+note:''}`,'incident','reviewed');
+      addLog('Incident guide reviewed',`Manual guide review only; ${done} items marked done, ${cant} can’t do, ${skipped} skipped; ${stepGaps.filter(v=>v==='cant').length} whole steps could not be done and ${stepGaps.filter(v=>v==='skip').length} whole steps were skipped. ${sendReports} SMS Send actions reported by user (delivery unknown), ${opened} drafts reported opened (not confirmed sent). Unfinished items are not complete; skipped steps are also unconfirmed.${note?' Note: '+note:''}`,'incident','reviewed');
       data.incident=defaults().incident;
       go('log');return toast('Guide review saved locally; no emergency action was sent.');
     }
@@ -1234,9 +1398,11 @@
       const next={name:contactName.slice(0,70),phone:phone.slice(0,26),role:CONTACT_ROLES.includes(role)?role:'unspecified'};
       if(name==='save-contact'){
         if(!Number.isInteger(contactEditIndex)||!data.contacts[contactEditIndex])return toast('Choose a contact to edit first.');
+        next.id=data.contacts[contactEditIndex].id;
         data.contacts[contactEditIndex]=next;
       }else{
         if(data.contacts.length>=100)return toast('Maximum number of local contacts reached.');
+        next.id='c-'+data.nextContactId++;
         data.contacts.push(next);
       }
       contactEditIndex=null;update();return toast('Contact saved locally. Verify the number before using it.');
@@ -1257,7 +1423,12 @@
     }
     if(name==='remove-contact'){
       const c=data.contacts[index];if(!c)return;
+      if(data.incident.communication.pendingId===c.id)return toast('Resolve the pending SMS draft request in the Incident guide before removing this contact.');
       if(!confirm('Remove '+c.name+' from this device? This also clears its reached mark in the active guide.'))return;
+      const state=data.incident.communication;
+      state.selected=state.selected.filter(x=>x!==c.id);
+      if(state.pendingId===c.id)state.pendingId='';
+      delete state.entries[c.id]; // Earlier user-reported Send actions remain in the activity log.
       data.contacts.splice(index,1);
       data.incident.contacted=data.incident.contacted.filter(k=>k!==index).map(k=>k>index?k-1:k);
       if(contactEditIndex===index)contactEditIndex=null;
@@ -1294,6 +1465,12 @@
     event.preventDefault();dispatch(button.dataset.action,button);
   });
   document.addEventListener('input',event=>{
+    if(event.target.id==='sms-current-location'){
+      data.incident.communication.currentLocation=String(event.target.value||'').slice(0,120);
+      save();
+      const preview=field('p3b-message-preview');if(preview)preview.textContent=safetyMessage();
+      return;
+    }
     const key=({'home-address':'home','office-address':'office','safe-place':'safePlace',
       'preferred-station':'station','shelter-name':'shelter','shelter-source':'shelter'})[event.target.id];
     if(!key)return;
@@ -1303,6 +1480,16 @@
     if(status)status.textContent='Edited · check again before saving';
   });
   document.addEventListener('change',async event=>{
+    if(event.target.dataset?.communicationTemplate && event.target.matches?.('[data-communication-template]')){
+      const value=event.target.dataset.communicationTemplate;
+      if(SMS_TEMPLATES.some(t=>t.id===value)){data.incident.communication.template=value;update();}
+      return;
+    }
+    if(event.target.dataset?.communicationLanguage && event.target.matches?.('[data-communication-language]')){
+      const value=event.target.dataset.communicationLanguage;
+      if(SMS_LANGUAGES.includes(value)){data.incident.communication.language=value;update();}
+      return;
+    }
     if(event.target.matches?.('[data-contact-role]')){
       const index=Number(event.target.dataset.contactRole),role=event.target.value;
       if(data.contacts[index]&&CONTACT_ROLES.includes(role)){

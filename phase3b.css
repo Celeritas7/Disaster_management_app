@@ -1,0 +1,61 @@
+/* Phase 3B — offline, user-controlled emergency SMS drafts and audit states. */
+.p3b-communication{display:grid;gap:19px;color:#f7f4ff}
+.p3b-communication>p{margin:0;line-height:1.7;color:#efebf6}
+.p3b-communication a{color:#b9d7ff;text-decoration:underline;text-underline-offset:3px}
+.p3b-heading{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+.p3b-heading h2{font-size:22px;line-height:1.28;margin:6px 0 0;color:#fff}
+.p3b-heading h3{font-size:18px;line-height:1.35;margin:0;color:#fff}
+.p3b-heading small{font-size:13px;color:#d9e2f3}
+.p3b-local{border:1px solid #b1c8e1;color:#e6f3ff;border-radius:20px;font-size:10px;letter-spacing:.07em;font-weight:800;padding:7px 10px}
+.p3b-choices{margin:0;min-width:0;border:1px solid #667487;border-radius:13px;padding:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:9px}
+.p3b-choices legend{color:#f5e6cb;font-size:15px;font-weight:800;padding:0 8px}
+.p3b-choices label{display:flex;align-items:center;gap:10px;border:1px solid #6f7a91;border-radius:10px;background:#1b2638;min-height:54px;padding:11px 12px;cursor:pointer;line-height:1.35;font-size:14px}
+.p3b-choices label:has(input:checked){background:#253e54;border-color:#9ac9ff}
+.p3b-choices input{flex:none;width:18px;height:18px;accent-color:#b0d4ff}
+.p3b-languages{grid-template-columns:repeat(3,minmax(0,1fr))}
+.p3b-location{margin:0}
+.p3b-location label{color:#fff;font-weight:750}
+.p3b-location input{width:100%;min-height:50px;box-sizing:border-box}
+.p3b-location small{display:block;margin-top:8px;color:#e2deec;font-size:12px;line-height:1.6}
+.p3b-preview{padding:17px;border:1px solid #a1b7dc;border-radius:14px;background:#17243a;display:grid;justify-items:start;gap:12px}
+.p3b-preview .sublabel{color:#b9cfff}
+.p3b-preview p{white-space:pre-wrap;overflow-wrap:anywhere;color:#fff;margin:0;width:100%;font-size:16px;line-height:1.65}
+.p3b-preview small{font-size:12px;line-height:1.6;color:#e0e8f8}
+.p3b-recipient-list{display:grid;gap:10px}
+.p3b-recipient{padding:14px 15px;background:#171f2c;border:1px solid #768194;border-radius:13px;min-width:0;display:grid;gap:10px}
+.p3b-recipient.is-selected{border-color:#9ac9ff;background:#1e2d3f}
+.p3b-recipient-title{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:11px}
+.p3b-recipient-title>div{min-width:170px;flex:1}
+.p3b-recipient-title strong{display:block;color:#fff;font-size:16px;overflow-wrap:anywhere}
+.p3b-recipient-title small{display:block;color:#d9e3f5;font-size:12px;line-height:1.6;overflow-wrap:anywhere;margin-top:4px}
+.p3b-recipient-status{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.p3b-status{display:inline-flex;align-items:center;border-radius:8px;border:1px solid #9cabc0;padding:6px 9px;font-size:12px;font-weight:800;line-height:1.4;max-width:100%}
+.p3b-status.unsent{color:#f6e2c7;background:#352a20;border-color:#e9b875}
+.p3b-status.pending{color:#fce5b7;background:#493515;border-color:#ffca72}
+.p3b-status.opened{color:#e1edff;background:#243856;border-color:#9ab9ef}
+.p3b-status.sent{color:#d6fce9;background:#184334;border-color:#8ce3b7}
+.p3b-stale{color:#ffceaa;font-size:12px;line-height:1.5}
+.p3b-recipient-actions,.p3b-pending-actions{display:flex;gap:9px;flex-wrap:wrap}
+.p3b-recipient-actions .btn,.p3b-pending-actions .btn{min-height:44px;white-space:normal}
+.p3b-queue{background:#212b37;border:1px solid #7f9dbb;border-radius:14px;padding:18px;display:grid;justify-items:start;gap:12px}
+.p3b-queue>strong{color:#fff;font-size:16px}
+.p3b-queue p{color:#eff4ff;margin:0;line-height:1.65;font-size:14px}
+.p3b-queue small{color:#e6eafa;font-size:12px;line-height:1.5}
+.p3b-queue .btn{min-height:52px;white-space:normal;text-align:left}
+.p3b-pending{padding:18px;border:2px solid #ffc87b;background:#372916;border-radius:14px;color:#fff4e1}
+.p3b-pending>strong{font-size:16px;line-height:1.5}
+.p3b-pending p{margin:10px 0 14px;font-size:14px;line-height:1.7;color:#f7e8d1}
+.p3b-disclaimer{padding:14px 16px;border-left:4px solid #f1b46b;background:#282b37;border-radius:8px;line-height:1.65;font-size:13px;color:#f4edf3}
+.p3b-communication .btn:focus-visible,.p3b-communication input:focus-visible{outline:3px solid #ffe08e;outline-offset:3px}
+@media(max-width:600px){
+  .p3b-languages{grid-template-columns:1fr}
+  .p3b-choices{grid-template-columns:1fr}
+  .p3b-queue .btn{width:100%}
+  .p3b-recipient-title>.btn{min-width:118px}
+}
+@media(max-width:375px){
+  .p3b-preview,.p3b-pending,.p3b-queue{padding:14px}
+  .p3b-recipient{padding:12px}
+  .p3b-recipient-actions .btn,.p3b-pending-actions .btn{width:100%}
+}
+@media(prefers-reduced-motion:reduce){.p3b-communication *{animation:none!important;transition:none!important}}

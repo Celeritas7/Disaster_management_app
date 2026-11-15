@@ -162,14 +162,15 @@ test('Invalid numbers are rejected and SMS needs manual confirmation before open
   assert.equal(h.window.location.href,'');
   h.setConfirm(true);h.click('sms-contact',{index:'0'});
   assert.match(h.window.location.href,/^sms:\+819012345678\?body=/);
-  assert.match(decodeURIComponent(h.window.location.href),/I am safe/);
+  assert.match(decodeURIComponent(h.window.location.href),/Please let me know if you are safe/);
+  assert.doesNotMatch(decodeURIComponent(h.window.location.href),/Tokyo home|Library/);
 });
 
 test('New styles and current versioned cache include the Phase 2A UI without changing the data key',()=>{
   assert.match(css,/\.p2a-contact-card/);
   assert.match(css,/@media\(max-width:360px\)/);
   assert.match(html,/href="\.\/phase2a\.css"/);
-  assert.match(sw,/disaster-management-app-v10/);
+  assert.match(sw,/disaster-management-app-v11/);
   assert.match(sw,/\.\/phase2a\.css/);
   assert.match(js,/disaster-management:v1/);
   assert.doesNotMatch(js,/localStorage\.clear\(/);

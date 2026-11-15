@@ -123,7 +123,7 @@ test('Phase 3B: bilingual previews, priority SMS, interrupted drafts, old v1 and
   await page.reload({waitUntil:'domcontentloaded'});
   assert.match(await page.locator('.p3b-pending').innerText(),/Backup/);
   page.once('dialog',dialog=>dialog.accept());
-  await page.locator('[data-action="communication-confirm-sent"]').click();
+  await page.locator('.p3b-pending [data-action="communication-confirm-sent"]').click();
   record=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)),KEY);
   assert.equal(record.incident.communication.entries[ids[1]].status,'user-confirmed-sent');
   assert.match(await page.locator('.p3b-recipient').nth(1).innerText(),/delivery UNKNOWN/);

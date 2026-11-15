@@ -10,7 +10,7 @@ let chromium;
 try {({chromium}=createRequire(import.meta.url)('playwright'));}catch {/* Required by CI. */}
 const root=process.env.DMA_TEST_ROOT||join(dirname(fileURLToPath(import.meta.url)),'..');
 const prefix='/Disaster_management_app/';
-const files=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','phase2a.css','phase2b.css','phase3a.css','phase3b.css','phase3c.css','mobile-ux.css',
+const files=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','phase2a.css','phase2b.css','phase2c.css','phase3a.css','phase3b.css','phase3c.css','mobile-ux.css',
   'service-worker.js','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
 const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 const KEY='disaster-management:v1';

@@ -43,3 +43,14 @@ test('new style is shipped in updated offline cache without adding a network int
   assert.match(sw,/OWNED_CACHE = \/\^disaster-management-app-v/);
   assert.doesNotMatch(css,/https?:\/\//);
 });
+
+test('browser fixtures serve every offline shell file so service worker installation can finish',()=>{
+  const shell=sw.match(/const SHELL = \[([^\]]+)\];/);
+  assert.ok(shell,'offline shell list is present');
+  const assets=[...shell[1].matchAll(/'\.\/([^']+)'/g)].map(match=>match[1]).filter(name=>name);
+  for(const fixture of ['tests/phase3c-browser.test.mjs','tests/mobile-ux-browser.test.mjs']){
+    const source=read(fixture);
+    for(const asset of assets.filter(name=>name!=='index.html'))
+      assert.ok(source.includes("'"+asset+"'"),fixture+' must serve '+asset);
+  }
+});

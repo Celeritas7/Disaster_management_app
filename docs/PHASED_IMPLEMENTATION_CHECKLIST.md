@@ -68,8 +68,8 @@ Status notation: `[x]` completed in the named work branch; `[ ]` pending. A chec
 
 ## Phase 2 — Real setup, readiness and local data
 
-- [ ] **P2-01** Collect user-edited home/office, safe check-in location, preferred station and **officially verified** shelter, with accuracy/provenance flags (`OB-04,OB-08,SE-14–15`).
-- [ ] **P2-02** Add contact roles and explicit ordering, international phone number handling, missing-role prompts and confirmation before messaging (`OB-07,IN-12,RD-05`).
+- [x] **P2-01 · Phase 2A code** Collect user-edited home/office, safe check-in location, preferred station and a municipality-source *self-checked* shelter, with per-place check dates/provenance (`OB-04,OB-08,SE-14–15`). The app cannot independently certify a shelter; current official availability must still be checked.
+- [x] **P2-02 · Phase 2A code** Add editable contact roles and explicit ordering, local/international phone-format checks, missing-role prompts and confirmation before opening SMS drafts (`OB-07,IN-12,RD-05`).
 - [ ] **P2-03** Expand ten generic readiness checks into a configurable 14-item go-bag inventory while retaining existing completion data (`RD-03,RD-11,CF-15`).
 - [ ] **P2-04** Track expiry/review dates, water quantity, cash target, embassy registration and critical preparation gaps (`RD-02,04–09`).
 - [ ] **P2-05** Keep honest weighted readiness calculation and distinguish **checked by user**, **system verified**, **expired** and **unknown** (`RD-07,RD-12,RD-13`).
@@ -78,6 +78,8 @@ Status notation: `[x]` completed in the named work branch; `[ ]` pending. A chec
 - [ ] **P2-08** Investigate account/secure sync as a separately opt-in later enhancement; do not upload address/contact/document data automatically.
 
 **Exit gate:** Existing users' v1 records survive; no automatic location/background permission at first load; readiness never claims documents or emergency kit are cached if not.
+
+**Phase 2A implementation report:** [PHASE2A_IMPLEMENTATION_REPORT.md](PHASE2A_IMPLEMENTATION_REPORT.md). Checkmarks mean implemented in a review branch, subject to CI and device acceptance; they do not mean deployed. **Phase 2B** continues P2-03 through P2-05 (go-bag inventory and accurate readiness). **Phase 2C** continues P2-06 through P2-08 (consent, backup/migration, sync investigation).
 
 ## Phase 3 — Reliable incident and communication flow
 

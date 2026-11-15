@@ -139,17 +139,18 @@ function appHarness(initialRaw, {controlled = false, swEnabled = controlled} = {
 test('service worker install reloads all app-shell files from the network', async () => {
   const worker = serviceWorkerHarness();
   await worker.lifecycle('install');
-  assert.equal(worker.preloaded.length,10);
+  assert.equal(worker.preloaded.length,11);
   assert.ok(worker.preloaded.some(item=>item.url===SCOPE+'phase1c.css'));
+  assert.ok(worker.preloaded.some(item=>item.url===SCOPE+'phase2a.css'));
   assert.ok(worker.preloaded.every(item => item.url.startsWith(SCOPE) && item.cache === 'reload'));
   assert.equal(worker.skipWaits,1);
 });
 
 test('activation removes only old Disaster Management versioned caches', async () => {
   const worker = serviceWorkerHarness();
-  for (const name of ['disaster-management-app-v4','disaster-management-app-v5',CURRENT_CACHE,'disaster-management-app-images','kg-chart-v1','otherapp-static-v4']) worker.getCache(name);
+  for (const name of ['disaster-management-app-v4','disaster-management-app-v5','disaster-management-app-v6',CURRENT_CACHE,'disaster-management-app-images','kg-chart-v1','otherapp-static-v4']) worker.getCache(name);
   await worker.lifecycle('activate');
-  assert.deepEqual(worker.deleted,['disaster-management-app-v4','disaster-management-app-v5']);
+  assert.deepEqual(worker.deleted,['disaster-management-app-v4','disaster-management-app-v5','disaster-management-app-v6']);
   assert.deepEqual([...worker.cacheNames.keys()],[CURRENT_CACHE,'disaster-management-app-images','kg-chart-v1','otherapp-static-v4']);
   assert.equal(worker.claims,1);
 });

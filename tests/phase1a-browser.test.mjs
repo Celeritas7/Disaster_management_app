@@ -11,7 +11,7 @@ try {({chromium}=createRequire(import.meta.url)('playwright'));}
 catch {/* Browser runner installs this in GitHub Actions. */}
 const root=process.env.DMA_TEST_ROOT || join(dirname(fileURLToPath(import.meta.url)),'..');
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
-const shell=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','service-worker.js','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
+const shell=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','phase2a.css','service-worker.js','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
 
 test('Phase 1A Watch, setup and Readiness work at 320–412px without misleading live data', {timeout:90000}, async t=>{
   if(!chromium){

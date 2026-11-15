@@ -1,0 +1,36 @@
+/* Phase 2A: user-checked places and deliberate emergency-contact actions.
+   Only Settings and the existing incident contact presentation are changed. */
+.p2a-settings-two{align-items:start}
+.p2a-place-form,.p2a-contacts-form{min-width:0}
+.p2a-place-field{border-bottom:1px solid #4d4659;padding:1px 0 13px;margin-bottom:12px}
+.p2a-place-field .text-field{margin:6px 0}
+.p2a-place-field input[type=text],.p2a-place-form input,.p2a-contacts-form input{min-height:46px;width:100%;max-width:100%;overflow-wrap:anywhere}
+.p2a-place-form .text-field small,.p2a-contacts-form .text-field small{display:block;color:#bcaecb;font-size:12px;line-height:1.5;margin-top:7px}
+.p2a-check{display:flex;align-items:flex-start;gap:11px;color:#e6dbf3;font-size:12px;line-height:1.55;cursor:pointer;margin-top:9px;padding:7px 0;min-height:44px}
+.p2a-check input[type=checkbox]{width:21px;height:21px;flex:0 0 21px;min-height:21px;accent-color:#8c7cec;margin-top:2px}
+.p2a-check span{min-width:0}
+.p2a-check small{display:block;color:#b9adca;font-size:11px;line-height:1.45;margin-top:3px}
+.p2a-helper{background:#2c2837;border:1px solid #665774;border-radius:11px;color:#e1d7ed;font-size:12px;line-height:1.65;padding:12px 13px;margin:13px 0;overflow-wrap:anywhere}
+.p2a-place-form .p2a-helper{display:flex;gap:9px;align-items:flex-start}
+.p2a-place-form .p2a-helper .ico{flex:none;margin-top:1px}
+.p2a-contacts-form select,.p2a-contact-details select{width:100%;min-height:45px;padding:10px;border-radius:9px;border:1px solid #736584;background:#292435;color:#fff;font-size:13px}
+.p2a-contact-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:12px 0}
+.p2a-contact-controls .btn{min-height:44px;margin:0;padding:9px 14px}
+.p2a-contact-card{display:block;background:#262131;border:1px solid #574c68;border-radius:12px;margin-top:10px;padding:13px}
+.p2a-contact-details{min-width:0}
+.p2a-contact-details strong{color:#f4ebff;font-size:15px}
+.p2a-contact-details small{color:#c0b5cd}
+.p2a-contact-details label{display:block;color:#d8ccde;font-size:12px;margin-top:13px}
+.p2a-contact-details select{margin-top:6px}
+.p2a-contact-card .p2a-contact-controls{margin-bottom:0}
+.p2a-contact-card .p2a-contact-controls .btn{flex:1 1 auto}
+.p2a-editing{color:#f2ddae!important;background:#3f3524;border-left:3px solid #d6a75e;padding:10px;border-radius:5px}
+.p2a-disclaimer{font-size:12px!important;color:#bcb2ca!important;line-height:1.65!important;margin-top:14px}
+@media(max-width:680px){
+  .p2a-settings-two{gap:13px}
+  .p2a-contact-card .p2a-contact-controls .btn{flex:1 1 85px}
+}
+@media(max-width:360px){
+  .p2a-contact-card .p2a-contact-controls .btn{flex:1 1 100px}
+  .p2a-place-form,.p2a-contacts-form{padding:13px}
+}

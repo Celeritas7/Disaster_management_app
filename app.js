@@ -54,6 +54,9 @@
   ];
   const LOG_KINDS = ['manual','departure','stranded','incident','night','reflection'];
   const LOG_STATUSES = ['recorded','confirmed','resolved','reviewed','saved'];
+  const PLACE_FIELDS = ['home','office','safePlace','station','shelter'];
+  const CONTACT_ROLES = ['unspecified','primary','backup','work','other'];
+  const CONTACT_ROLE_LABELS = {unspecified:'Role not assigned',primary:'Primary contact',backup:'Backup contact',work:'Work / colleague',other:'Other trusted person'};
   const TOUR = [
     {jp:'はじめに',title:'A quiet watcher for a loud country.',body:'Disaster Management helps you prepare and walks you through difficult moments. Its first version works manually, even without a live feed.',points:[['Guided seven-step earthquake response','Offline guide'],['Checklist, contacts and safety notes','Saved here'],['Weather and quake monitoring','Not connected']]},
     {jp:'持ち出し',title:'Make your emergency kit visible.',body:'A readiness score is only useful when it reflects things you have genuinely checked.',points:[['Mark each item when verified','No assumptions'],['Prepare water, food and a go-bag','Your checklist'],['Remember to review dates','Manual']]},
@@ -97,7 +100,7 @@
     return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
   function defaults() {
-    return {version:VERSION,page:'watch',tourStep:0,tourDone:false,profile:{home:'',office:'',shelter:'',safePlace:''},
+    return {version:VERSION,page:'watch',tourStep:0,tourDone:false,profile:{home:'',office:'',shelter:'',safePlace:'',station:'',shelterSource:'',placeChecks:{}},
       checks:{},contacts:[],incident:{active:false,step:1,done:{},contacted:[],note:'',oneStep:false,cursor:{},outcomes:{}},
       departure:{wallet:false,pass:false,phone:false,keys:false},strandedStep:0,
       night:{phase:'idle',limit:2,budget:3000,leave:'23:30',leaveAt:null,mode:'train',drinks:0,spent:0,note:'',costHistory:[]},
@@ -112,10 +115,20 @@
     const pages=['watch','readiness','incident','departure','stranded','night','log','settings','reflection','onboard'];
     d.page=pages.includes(raw.page)?raw.page:'watch';
     d.tourDone=!!raw.tourDone;d.tourStep=num(raw.tourStep,TOUR.length-1);
-    for(const k of Object.keys(d.profile)) d.profile[k]=str(obj(raw.profile)[k],240);
+    const profile=obj(raw.profile);
+    for(const k of [...PLACE_FIELDS,'shelterSource']) d.profile[k]=str(profile[k],240);
+    // Optional additive v1 metadata. Never assume old addresses or shelters
+    // were checked merely because a name was entered in a previous version.
+    for(const k of PLACE_FIELDS){
+      const check=obj(obj(profile.placeChecks)[k]),at=str(check.checkedAt,35);
+      if(d.profile[k] && (! (k==='shelter') || d.profile.shelterSource)
+        && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d/.test(at) && Number.isFinite(Date.parse(at)))
+        d.profile.placeChecks[k]={checkedAt:at,source:k==='shelter'?'municipality-self':'user-self'};
+    }
     for(const c of CHECKS) d.checks[c.id]=!!obj(raw.checks)[c.id];
     d.contacts=(Array.isArray(raw.contacts)?raw.contacts:[]).filter(c=>c&&typeof c.name==='string'&&typeof c.phone==='string')
-      .slice(0,100).map(c=>({name:str(c.name,70),phone:str(c.phone,26)}));
+      .slice(0,100).map(c=>({name:str(c.name,70),phone:str(c.phone,26),
+        role:CONTACT_ROLES.includes(c.role)?c.role:'unspecified'}));
     for(const k of Object.keys(d.departure)) d.departure[k]=!!obj(raw.departure)[k];
     d.strandedStep=num(raw.strandedStep,STRANDED.length-1);
     const incident=obj(raw.incident);
@@ -198,11 +211,25 @@
   // Presentation-only choice. Do not migrate or rewrite existing version-1 records.
   let watchLayout = 'radar';
   let nightLayout = 'counters';
+  let contactEditIndex = null; // UI-only; never confuse editing with a saved contact.
   const app = document.getElementById('app');
   const readyCount = () => CHECKS.reduce((n,c) => n+(data.checks[c.id] ? c.pts : 0),0);
   const doneCount = () => CHECKS.filter(c => data.checks[c.id]).length;
   const when = () => new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Tokyo',day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date());
   const yen = n => '¥'+Number(n || 0).toLocaleString('en-JP');
+  const contactRole = role => CONTACT_ROLE_LABELS[role]||CONTACT_ROLE_LABELS.unspecified;
+  const checkedPlace = key => {
+    const at=data.profile.placeChecks?.[key]?.checkedAt;
+    if(!at)return 'Not checked by you';
+    return 'Checked by you · '+new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Tokyo',day:'numeric',month:'short',year:'numeric'}).format(new Date(at));
+  };
+  function phoneForComposer(value) {
+    const phone=String(value||'').trim(),digits=phone.replace(/\D/g,'');
+    // Supports both local Japanese and international +E.164-style numbers;
+    // formatting is only syntactic and does not prove a number is reachable.
+    if(!/^\+?[0-9 ()-]+$/.test(phone)||digits.length<6||digits.length>15||phone.slice(1).includes('+'))return null;
+    return (phone.startsWith('+')?'+':'')+digits;
+  }
   // Japan has a fixed UTC+09:00 offset. Capture the *specific* next occurrence
   // of a user's selected leave time when their plan starts. Once it passes,
   // never silently roll the target over to tomorrow.
@@ -230,7 +257,7 @@
     catch { toast('Local storage is unavailable; your changes may not persist.');return false; }
   }
   function update() { save(); render(); }
-  function go(page) { data.page=page;update();window.scrollTo({top:0,behavior:'instant'}); }
+  function go(page) { if(page!=='settings')contactEditIndex=null;data.page=page;update();window.scrollTo({top:0,behavior:'instant'}); }
   function toast(message) {
     const el=document.getElementById('toast');
     el.textContent=message;el.classList.add('show');clearTimeout(toastTimer);
@@ -376,11 +403,11 @@
     if(step.n===3) return `<section class="incident-step-card"><h3>Draft a safety message</h3><p>Check the details before sending. Copying or opening SMS does not mean a message was delivered.</p>
       <div class="card-soft card-pad"><div class="sublabel">MESSAGE · ENGLISH / 日本語</div><p style="color:#e8efff;font-size:15px">${safe(safetyMessage())}</p><p style="color:#b3bfd6;font-size:14px">無事です。今は${safe(data.profile.safePlace||'［現在地］')}にいます。また連絡します。</p>${action('copy-message',icon('copy','sm')+' Copy message','btn-primary')}</div>
       <div class="section-heading"><h2>Emergency contacts</h2><small>${data.contacts.length} saved</small></div>
-      ${data.contacts.length?data.contacts.map((c,k)=>`<div class="contact-row"><div><div class="contact-name">${safe(c.name)}</div><div class="contact-meta">${safe(c.phone)}</div></div><div class="form-actions" style="margin:0">${action('sms-contact','Compose SMS','btn-outline btn-sm',`data-index="${k}"`)}${action('incident-contact',i.contacted.includes(k)?'Reached ✓':'Mark reached',i.contacted.includes(k)?'btn-success btn-sm':'btn-outline btn-sm',`data-index="${k}"`)}</div></div>`).join(''):`<div class="info-band amber">${icon('info')}<div>No contacts saved yet. Add them from Settings. ${action('go','Add contacts','btn-quiet btn-sm','data-page="settings"')}</div></div>`}
+      ${data.contacts.length?data.contacts.map((c,k)=>`<div class="contact-row"><div><div class="contact-name">${safe(c.name)}</div><div class="contact-meta">${safe(contactRole(c.role))} · ${safe(c.phone)} · Priority ${k+1}</div></div><div class="form-actions" style="margin:0">${action('sms-contact','Review SMS draft','btn-outline btn-sm',`data-index="${k}"`)}${action('incident-contact',i.contacted.includes(k)?'Reached ✓':'Mark reached',i.contacted.includes(k)?'btn-success btn-sm':'btn-outline btn-sm',`data-index="${k}"`)}</div></div>`).join(''):`<div class="info-band amber">${icon('info')}<div>No contacts saved yet. Add them from Settings. ${action('go','Add contacts','btn-quiet btn-sm','data-page="settings"')}</div></div>`}
       <div class="info-band blue" style="margin-top:18px">${icon('phone')}<div><strong>Disaster Message Dial 171 · 災害用伝言ダイヤル</strong><br>Call <a href="tel:171">171</a> and follow voice prompts. Press 1 to record or 2 to listen, then follow the requested phone-number steps. <a href="https://www.ntt-east.co.jp/en/saigai/voice171s/rec.html" target="_blank" rel="noopener noreferrer">NTT instructions</a>.</div></div></section>`;
     if(step.n===4) return `<section class="incident-step-card"><h3>Use current, verified warnings.</h3><p>This app has no live quake, tsunami, shelter availability or route feed. Never rely on a demonstration map for evacuation.</p>
       <div class="callout-steps"><div class="callout"><strong class="red">LEAVE IMMEDIATE DANGER</strong><ul><li>Fire, smoke or gas hazard</li><li>Serious structural damage</li><li>Tsunami warning / official order</li><li>Other imminent risk</li></ul></div><div class="callout neutral"><strong class="green">IF SHELTERING IN PLACE</strong><ul><li>Make sure conditions remain safe</li><li>Monitor official instructions</li><li>Keep exits clear</li><li>Be ready to move if advised</li></ul></div></div>
-      <div class="card-soft card-pad" style="margin-top:15px"><div class="sublabel">YOUR VERIFIED SHELTER</div><h3 style="font-size:18px;margin:10px 0 4px">${safe(data.profile.shelter||'Not saved yet')}</h3><p>${data.profile.shelter?'This is only a name you entered. Confirm accessibility, route and official instructions.':'Set an officially designated shelter in Settings before an emergency.'}</p>${action('go','Edit shelter','btn-outline btn-sm','data-page="settings"')}</div>
+      <div class="card-soft card-pad" style="margin-top:15px"><div class="sublabel">YOUR SAVED SHELTER · SELF-REPORTED</div><h3 style="font-size:18px;margin:10px 0 4px">${safe(data.profile.shelter||'Not saved yet')}</h3><p>${safe(checkedPlace('shelter'))}. ${data.profile.shelter?'Check the latest municipality instructions, accessibility and route again before travelling. The app has not verified availability.':'Add an officially designated shelter from your municipality’s information in Settings.'}</p>${data.profile.shelterSource?`<p><strong>Your source note:</strong> ${safe(data.profile.shelterSource)}</p>`:''}${action('go','Review shelter','btn-outline btn-sm','data-page="settings"')}</div>
       <div class="link-list" style="margin-top:17px">${link('https://www.jma.go.jp/bosai/','JMA official alerts')}${link('https://www.bousai.go.jp/','Japan disaster information')}</div></section>`;
     return '';
   }
@@ -478,6 +505,54 @@
           <div class="p1c-honesty">${icon('info')} This creates an inactive personal rule in your log. No reminder or trigger is scheduled, and the app cannot guarantee it will fire.</div></div></div>
         <div class="p1c-reflection-actions">${action('save-reflection','Save rule and observation','btn-primary btn-lg')}${action('go','Back to Activity Log','btn-outline','data-page="log"')}</div></div></section>`;
   }
+  function settingsPlacesPhase2A(group) {
+    const placeInput=(key,id,label,placeholder)=>{
+      const checked=!!data.profile.placeChecks?.[key]?.checkedAt;
+      const instruction=key==='shelter'
+        ? 'I checked this shelter against a current municipality source'
+        : 'I checked this information myself';
+      return `<div class="p2a-place-field"><div class="text-field"><label for="${id}">${label}</label><input id="${id}" maxlength="240" value="${safe(data.profile[key])}" placeholder="${placeholder}"/></div>
+        <label class="p2a-check"><input type="checkbox" id="place-verify-${key}" ${checked?'checked':''}/><span>${instruction}<small data-place-status="${key}">${safe(checkedPlace(key))}</small></span></label></div>`;
+    };
+    const roles=selected=>CONTACT_ROLES.map(role=>`<option value="${role}" ${selected===role?'selected':''}>${safe(contactRole(role))}</option>`).join('');
+    const editing=Number.isInteger(contactEditIndex)?data.contacts[contactEditIndex]:null;
+    const missing=[];
+    if(!data.contacts.some(c=>c.role==='primary'))missing.push('Choose a primary contact.');
+    if(!data.contacts.some(c=>c.role==='backup'))missing.push('Choose a backup contact, preferably outside your immediate area.');
+    const personCards=data.contacts.map((c,k)=>`<div class="p1c-setting-contact p2a-contact-card">
+      <div class="p2a-contact-details"><strong>${safe(c.name)}</strong><small>Priority ${k+1} · ${safe(c.phone)} · ${safe(contactRole(c.role))}</small>
+        <label>Role <select data-contact-role="${k}" aria-label="Role for ${safe(c.name)}">${roles(c.role)}</select></label></div>
+      <div class="p2a-contact-controls">
+        ${action('contact-up','↑','btn-outline btn-sm',`data-index="${k}" aria-label="Move ${safe(c.name)} higher" ${k===0?'disabled':''}`)}
+        ${action('contact-down','↓','btn-outline btn-sm',`data-index="${k}" aria-label="Move ${safe(c.name)} lower" ${k===data.contacts.length-1?'disabled':''}`)}
+        ${action('contact-edit','Edit','btn-outline btn-sm',`data-index="${k}"`)}
+        ${action('remove-contact','Remove','btn-quiet btn-sm',`data-index="${k}"`)}
+      </div></div>`).join('');
+    return group('details','05 · IMPORTANT DETAILS','Addresses and contacts',`<p>Only store details you are comfortable keeping in unencrypted browser storage. Labels show what <strong>you</strong> checked, not a verified system feed or a safe evacuation route.</p>
+      <div class="p1c-settings-two p2a-settings-two">
+        <div class="p1c-settings-form p2a-place-form"><h3>Places · self-reported</h3>
+          ${placeInput('home','home-address','Home address · 自宅住所','Ward / city, chōme, banchi…')}
+          ${placeInput('office','office-address','Office / regular departure point','Optional')}
+          ${placeInput('safePlace','safe-place','Preferred check-in location','Optional meeting place')}
+          ${placeInput('station','preferred-station','Preferred station · 最寄り駅','e.g. Minami-Urawa')}
+          ${placeInput('shelter','shelter-name','Municipal designated shelter · 指定避難所','Use your local municipality’s official list')}
+          <div class="text-field"><label for="shelter-source">Municipality source you checked</label><input id="shelter-source" maxlength="240" value="${safe(data.profile.shelterSource)}" placeholder="Municipality URL or notice title"/><small>Required before marking the shelter as checked. This source is user-entered, not automatically validated.</small></div>
+          <div class="p2a-helper">${icon('info')} If you change a saved value or the shelter source, review its checkbox again. A checked shelter may still close or become inaccessible in a disaster.</div>
+          ${action('save-profile','Save these places','btn-primary')}
+        </div>
+        <div class="p1c-settings-form p2a-contacts-form"><h3>Emergency contacts · in priority order</h3>
+          <p>Contacts are kept locally. A drafted SMS is never sent automatically; check the destination and message each time.</p>
+          <div class="p2a-helper" role="status">${data.contacts.length?missing.join(' ')||'Primary and backup roles assigned.':'No contacts saved. Add a trusted person, then assign primary and backup roles.'}</div>
+          ${editing?`<p class="p2a-editing">Editing ${safe(editing.name)} · Priority ${contactEditIndex+1}</p>`:''}
+          <div class="text-field"><label for="contact-name">Contact name</label><input id="contact-name" maxlength="70" value="${safe(editing?.name||'')}" placeholder="e.g. Brother"/></div>
+          <div class="text-field"><label for="contact-phone">Phone number</label><input id="contact-phone" maxlength="26" value="${safe(editing?.phone||'')}" placeholder="+81 90 1234 5678" inputmode="tel"/><small>Japanese local or international +country-code format, 6–15 digits. You must check that it is correct.</small></div>
+          <div class="text-field"><label for="contact-role">Role</label><select id="contact-role">${roles(editing?.role||'unspecified')}</select></div>
+          <div class="p2a-contact-controls">${action(editing?'save-contact':'add-contact',editing?'Save contact changes':'Add contact','btn-primary')}${editing?action('contact-cancel','Cancel edit','btn-outline'):''}</div>
+          <div class="p1c-contact-list" aria-label="Saved emergency contacts">${data.contacts.length?personCards:'<p>No contacts saved.</p>'}</div>
+          <p class="p2a-disclaimer">Up/down controls set the order used by the emergency message screen. Existing records without assigned roles stay <strong>unassigned</strong> until you edit them.</p>
+        </div>
+      </div>`);
+  }
   function settingsPhase1C() {
     const group=(id,kicker,title,content)=>`<section class="p1c-setting-group" id="p1c-${id}"><span class="p1c-overline">${kicker}</span><h2>${title}</h2>${content}</section>`;
     const status=(label,detail,value)=>`<div class="p1c-setting-row"><div><strong>${safe(label)}</strong><small>${safe(detail)}</small></div><span>${safe(value)}</span></div>`;
@@ -485,9 +560,7 @@
     const privacy=group('privacy','02 · PRIVACY','Your records stay on this device',`<p>Addresses, contacts and Night Out logs are kept in browser local storage <strong>without encryption</strong>. This app has no account and does not automatically transmit them.</p>${status('Exact location sharing','The app does not request or track location','Disabled')}${status('Akatsuki consent','No integration to authorize or revoke yet','Not configured')}${status('Contact and calendar sharing','No access or background synchronization','Disabled')}<div class="p1c-honesty">${icon('info')} Avoid saving sensitive identity-document photos or secrets, especially on shared devices. Browser storage can be lost when site data is cleared.</div>`);
     const thresholds=group('thresholds','03 · THRESHOLDS','Limits and alerts',`<p>Only manual Night Out limits are active. Weather and earthquake thresholds cannot fire without verified sources.</p>${status('Night Out drinks limit',nLimitLabel(),'Manual counter')}${status('Commute alert confidence','Requires a real prediction model','Unavailable')}${status('Quake intensity threshold','Requires a verified JMA feed','Unavailable')}${action('go','Edit Night Out plan','btn-outline','data-page="night"')}`);
     const offline=group('offline','04 · OFFLINE','Offline readiness',`<p>The guide, manual records and installed app files can work offline after the service worker finishes caching. No shelter-map tiles, identity documents or live feeds are included.</p>${status('App shell',offlineReady?'Service worker ready; verify by going offline':'Cache not confirmed in this session',offlineReady?'Worker ready':'Checking')}${status('Seven-step response guide','Included directly in the application','Included')}${status('Shelter maps / documents','No data downloaded; separate future phase','Not available')}<div class="p1c-honesty">${icon('info')} *Offline availability also depends on browser storage retention. Test an offline launch before relying on it.</div>`);
-    const places=group('details','05 · IMPORTANT DETAILS','Addresses and contacts',`<p>Only enter details you are comfortable storing here. A saved shelter is not independently verified.</p><div class="p1c-settings-two"><div class="p1c-settings-form"><h3>Places</h3><div class="text-field"><label for="home-address">Home address · 自宅住所</label><input id="home-address" value="${safe(data.profile.home)}" placeholder="Ward / city, chōme, banchi…"/></div><div class="text-field"><label for="office-address">Office / regular departure point</label><input id="office-address" value="${safe(data.profile.office)}" placeholder="Optional"/></div><div class="text-field"><label for="shelter-name">Designated shelter · 指定避難所</label><input id="shelter-name" value="${safe(data.profile.shelter)}" placeholder="Verify with your municipality"/></div><div class="text-field"><label for="safe-place">Preferred check-in location</label><input id="safe-place" value="${safe(data.profile.safePlace)}" placeholder="Optional"/></div>${action('save-profile','Save these places','btn-primary')}</div>
-      <div class="p1c-settings-form"><h3>Emergency contacts</h3><p>Enter phone numbers manually; SMS links open drafts only.</p><div class="text-field"><label for="contact-name">Contact name</label><input id="contact-name" placeholder="e.g. Brother"/></div><div class="text-field"><label for="contact-phone">Phone number</label><input id="contact-phone" placeholder="+81 …" inputmode="tel"/></div>${action('add-contact','Add contact','btn-primary')}
-        <div class="p1c-contact-list">${data.contacts.length?data.contacts.map((c,k)=>`<div class="p1c-setting-contact"><div><strong>${safe(c.name)}</strong><small>${safe(c.phone)}</small></div>${action('remove-contact','Remove','btn-quiet btn-sm',`data-index="${k}"`)}</div>`).join(''):'<p>No contacts saved.</p>'}</div></div></div>`);
+    const places=settingsPlacesPhase2A(group);
     const dataGroup=group('data','06 · DATA MANAGEMENT','Backup and recovery',`<p>Export contains your personal checklist, contacts and logs. Import replaces this app’s saved record <strong>only after confirmation</strong>.</p><div class="p1c-night-actions">${action('export',icon('download','sm')+' Export JSON backup','btn-outline')}<label class="btn btn-outline" for="import-json" style="cursor:pointer">Import backup</label><input id="import-json" type="file" accept="application/json,.json" style="display:none"/></div><div class="p1c-night-actions">${action('go','Review setup tour','btn-outline','data-page="onboard"')}${action('erase',icon('trash','sm')+' Erase this app’s records','btn-danger')}</div><p>Erasure is irreversible without a backup. No other app’s saved data or cache is intentionally deleted.</p>`);
     function nLimitLabel(){return data.night.limit===0?'Alcohol-free (0)':String(data.night.limit)+' drinks';}
     return `<section class="p1c-settings">${pageHeader('SETTINGS · 設定','Clarity and control.','Review your connected sources, privacy, manual thresholds, offline status, addresses, and backups.')}
@@ -586,10 +659,11 @@
       return;
     }
     if(name==='sms-contact'){
-      const c=data.contacts[index];if(!c)return;const phone=c.phone.replace(/[^+\d]/g,'');
+      const c=data.contacts[index];if(!c)return;const phone=phoneForComposer(c.phone);
       if(!phone)return toast('Save a valid phone number first.');
+      if(!confirm('Open a new SMS draft to '+c.name+' ('+phone+')? Check your message, number and current safety before deciding whether to send. This app cannot confirm delivery.'))return;
       window.location.href='sms:'+phone+'?body='+encodeURIComponent(safetyMessage());
-      return toast('SMS composer opened if supported. You must send it yourself.');
+      return toast('SMS composer requested. Review and send manually if appropriate.');
     }
     if(name==='finish-incident'){
       const incident=data.incident;
@@ -689,17 +763,58 @@
       go('log');return toast('One new rule saved.');
     }
     if(name==='save-profile'){
-      data.profile={home:field('home-address')?.value.trim().slice(0,240)||'',office:field('office-address')?.value.trim().slice(0,240)||'',shelter:field('shelter-name')?.value.trim().slice(0,240)||'',safePlace:field('safe-place')?.value.trim().slice(0,240)||''};
-      update();return toast('Places saved only in this browser.');
+      const ids={home:'home-address',office:'office-address',safePlace:'safe-place',station:'preferred-station',shelter:'shelter-name'};
+      const old=data.profile,next={...old,placeChecks:{}};
+      for(const [key,id] of Object.entries(ids))next[key]=(field(id)?.value||'').trim().slice(0,240);
+      next.shelterSource=(field('shelter-source')?.value||'').trim().slice(0,240);
+      if(field('place-verify-shelter')?.checked && (!next.shelter||!next.shelterSource))
+        return toast('Enter the shelter and municipality source before marking it checked.');
+      for(const key of PLACE_FIELDS){
+        if(!next[key]||!field('place-verify-'+key)?.checked)continue;
+        const unchanged=old[key]===next[key]&&(key!=='shelter'||old.shelterSource===next.shelterSource);
+        next.placeChecks[key]={checkedAt:unchanged&&old.placeChecks?.[key]?.checkedAt||new Date().toISOString(),
+          source:key==='shelter'?'municipality-self':'user-self'};
+      }
+      data.profile=next;update();return toast('Places and your own check dates saved locally.');
     }
-    if(name==='add-contact'){
+    if(name==='add-contact'||name==='save-contact'){
       const contactName=field('contact-name')?.value.trim(),phone=field('contact-phone')?.value.trim();
       if(!contactName||!phone)return toast('Enter a name and phone number.');
-      if(!/^[+\d()\s-]{5,26}$/.test(phone))return toast('Check the phone number format.');
-      data.contacts.push({name:contactName.slice(0,70),phone:phone.slice(0,26)});
-      update();return toast('Contact saved locally.');
+      if(!phoneForComposer(phone))return toast('Check number: use 6–15 digits, optionally starting with +country code.');
+      const role=field('contact-role')?.value;
+      const next={name:contactName.slice(0,70),phone:phone.slice(0,26),role:CONTACT_ROLES.includes(role)?role:'unspecified'};
+      if(name==='save-contact'){
+        if(!Number.isInteger(contactEditIndex)||!data.contacts[contactEditIndex])return toast('Choose a contact to edit first.');
+        data.contacts[contactEditIndex]=next;
+      }else{
+        if(data.contacts.length>=100)return toast('Maximum number of local contacts reached.');
+        data.contacts.push(next);
+      }
+      contactEditIndex=null;update();return toast('Contact saved locally. Verify the number before using it.');
     }
-    if(name==='remove-contact'){if(data.contacts[index]){data.contacts.splice(index,1);update();toast('Contact removed.');}return;}
+    if(name==='contact-edit'){
+      if(!data.contacts[index])return;
+      contactEditIndex=index;render();field('contact-name')?.focus?.();return;
+    }
+    if(name==='contact-cancel'){contactEditIndex=null;return render();}
+    if(name==='contact-up'||name==='contact-down'){
+      const to=index+(name==='contact-up'?-1:1);
+      if(!data.contacts[index]||to<0||to>=data.contacts.length)return;
+      [data.contacts[index],data.contacts[to]]=[data.contacts[to],data.contacts[index]];
+      data.incident.contacted=data.incident.contacted.map(k=>k===index?to:k===to?index:k);
+      if(contactEditIndex===index)contactEditIndex=to;
+      else if(contactEditIndex===to)contactEditIndex=index;
+      update();return toast('Contact priority order updated.');
+    }
+    if(name==='remove-contact'){
+      const c=data.contacts[index];if(!c)return;
+      if(!confirm('Remove '+c.name+' from this device? This also clears its reached mark in the active guide.'))return;
+      data.contacts.splice(index,1);
+      data.incident.contacted=data.incident.contacted.filter(k=>k!==index).map(k=>k>index?k-1:k);
+      if(contactEditIndex===index)contactEditIndex=null;
+      else if(contactEditIndex!==null&&contactEditIndex>index)contactEditIndex--;
+      update();return toast('Contact removed from this app.');
+    }
     if(name==='export-raw' || (name==='export' && recoveryRaw!==null)) {
       if(recoveryRaw===null)return toast('No unreadable records were found.');
       return downloadBackup(recoveryRaw,'disaster-management-original-backup.json');
@@ -726,7 +841,23 @@
     if(!button||!app.contains(button))return;
     event.preventDefault();dispatch(button.dataset.action,button);
   });
+  document.addEventListener('input',event=>{
+    const key=({'home-address':'home','office-address':'office','safe-place':'safePlace',
+      'preferred-station':'station','shelter-name':'shelter','shelter-source':'shelter'})[event.target.id];
+    if(!key)return;
+    const box=field('place-verify-'+key);
+    if(box)box.checked=false; // Edits must never retain a stale accuracy claim.
+    const status=app.querySelector('[data-place-status="'+key+'"]');
+    if(status)status.textContent='Edited · check again before saving';
+  });
   document.addEventListener('change',async event=>{
+    if(event.target.matches?.('[data-contact-role]')){
+      const index=Number(event.target.dataset.contactRole),role=event.target.value;
+      if(data.contacts[index]&&CONTACT_ROLES.includes(role)){
+        data.contacts[index].role=role;update();toast('Contact role saved locally.');
+      }
+      return;
+    }
     if(event.target.id==='import-json'||event.target.id==='import-recovery-json'){
       const file=event.target.files?.[0];if(!file)return;
       try {

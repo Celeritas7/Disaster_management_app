@@ -89,7 +89,7 @@
   }
   function defaults() {
     return {version:VERSION,page:'watch',tourStep:0,tourDone:false,profile:{home:'',office:'',shelter:'',safePlace:''},
-      checks:{},contacts:[],incident:{active:false,step:1,done:{},contacted:[],note:''},
+      checks:{},contacts:[],incident:{active:false,step:1,done:{},contacted:[],note:'',oneStep:false,cursor:{},outcomes:{}},
       departure:{wallet:false,pass:false,phone:false,keys:false},strandedStep:0,
       night:{phase:'idle',limit:2,budget:3000,leave:'23:30',mode:'train',drinks:0,spent:0,note:'',costHistory:[]},
       scenario:false,logs:[],rules:[]};
@@ -116,6 +116,19 @@
     for(const [k,v] of Object.entries(obj(incident.done))) {
       if(!/^[1-7]$/.test(k)||!Array.isArray(v))continue;
       d.incident.done[k]=v.filter(x=>Number.isInteger(x)&&x>=0&&x<10).slice(0,10);
+    }
+    // Additive v1 fields: old records without per-item outcomes remain valid.
+    // Can't and Skip are NOT completions, and must survive an offline reload.
+    d.incident.oneStep=!!incident.oneStep;
+    for(const s of INCIDENT.filter(s=>s.items)) {
+      const k=String(s.n),cursor=obj(incident.cursor)[k];
+      d.incident.cursor[k]=num(cursor,s.items.length,0);
+      d.incident.outcomes[k]={};
+      for(const [index,result] of Object.entries(obj(obj(incident.outcomes)[k]))) {
+        if(!/^\d+$/.test(index)||Number(index)>=s.items.length)continue;
+        if((result==='cant'||result==='skip')&&!d.incident.done[k]?.includes(Number(index)))
+          d.incident.outcomes[k][index]=result;
+      }
     }
     const night=obj(raw.night);
     d.night.phase=['idle','pre','live','after','drunk'].includes(night.phase)?night.phase:'idle';
@@ -299,22 +312,32 @@
   }
   function incident() {
     const i=data.incident,step=INC[i.step-1],total=INC.length;
-    return `<div class="incident-page">${pageHeader('EARTHQUAKE · 地震','Act one step at a time.','This offline guide supports decisions; it cannot determine whether a building or evacuation route is safe.')}
-      <div class="info-band amber" style="margin-bottom:18px">${icon('alert')}<div><strong>Real emergency?</strong> Protect your head during shaking. For ambulance/fire dial <a href="tel:119">119</a>; for police dial <a href="tel:110">110</a>. Follow official emergency instructions.</div></div>
-      <div class="incident-hero"><div class="eyebrow">STEP ${i.step} OF ${total} · ${i.active?'IN PROGRESS':'GUIDE READY'}</div><div class="stepper" aria-label="Incident steps">${INC.map(x=>`<button class="step-segment ${x.n<i.step?'past':''} ${x.n===i.step?'current':''}" data-action="incident-step" data-step="${x.n}" aria-label="Go to step ${x.n}" ${x.n===i.step?'aria-current="step"':''}></button>`).join('')}</div><h2>${safe(step.title)}</h2><p class="jp-sub">${safe(step.jp)}</p><p style="font-size:13px;color:#c0a4aa;margin-top:10px;line-height:1.5">${safe(step.desc)}</p></div>
+    return `<div class="incident-page p1b-incident" role="region" aria-label="Offline earthquake response guide">
+      <div class="p1b-incident-top"><span>EARTHQUAKE · 地震</span><span>STEP ${i.step} / ${total}</span></div>
+      <div class="p1b-incident-progress" role="group" aria-label="Guide navigation; earlier steps are not necessarily completed">${INC.map(x=>`<button type="button" class="p1b-incident-segment ${x.n<i.step?'past':''} ${x.n===i.step?'current':''}" data-action="incident-step" data-step="${x.n}" aria-label="Go to step ${x.n}: ${safe(x.title)}" ${x.n===i.step?'aria-current="step"':''}></button>`).join('')}</div>
+      <header class="p1b-incident-header"><div class="p1b-overline">${i.active?'GUIDE IN PROGRESS':'OFFLINE GUIDE READY'}</div><h1>${step.n===1?'Are you hurt?':safe(step.title)}</h1><p class="p1b-incident-jp">${step.n===1?'怪我をしていますか？':safe(step.jp)}</p><p class="p1b-incident-lead">${safe(step.desc)}</p></header>
+      <div class="p1b-emergency-bar" role="note">${icon('alert')}<span>Protect yourself during shaking. Emergency calls open your phone dialer: <a href="tel:119">119 · Ambulance / fire</a> or <a href="tel:110">110 · Police</a>. Current hazards and routes are not monitored.</span></div>
       ${incidentBody(step)}
-      <div class="incident-controls">${action('incident-prev',icon('chevron','sm')+' Previous','btn-outline',i.step===1?'disabled':'')}${action('go','Leave guide','btn-outline','data-page="watch"')}${action(i.step===7?'finish-incident':'incident-next',i.step===7?'Finish & save a log': 'Continue to step '+(i.step+1)+' '+icon('arrow','sm'),'btn-primary')}</div>
-      <p class="lastline">Progress is saved locally · ${netOnline?'Online':'Offline'} · Official information may change rapidly.</p>
+      <div class="p1b-incident-controls">${action('incident-prev','← Previous step','btn-outline',i.step===1?'disabled':'')}${action(i.step===7?'finish-incident':'incident-next',i.step===7?'Save review to log':'Continue to step '+(i.step+1)+' →','btn-primary')}${action('go','Leave guide (progress saved)','btn-quiet','data-page="watch"')}</div>
+      <p class="p1b-incident-footnote">Step position does not mean tasks are done. Manual progress is saved on this device. ${netOnline?'Browser reports connected; live alerts are not connected.':'Browser reports offline; use locally available official information and emergency services.'}</p>
     </div>`;
   }
   function incidentBody(step) {
     const i=data.incident,done=i.done[i.step]||[];
-    if(step.n===1) return `<section class="incident-step-card"><h3>Are you hurt? 怪我をしていますか？</h3><p>If you are injured or someone is in immediate danger, call emergency services. On a phone these buttons open the dialer.</p><div class="emergency-contact-grid"><a class="emergency-call" href="tel:119"><div><strong>119 · Ambulance / Fire</strong><span>救急・消防 · Tap to call</span></div>${icon('phone','lg')}</a><a class="emergency-call secondary" href="tel:110"><div><strong>110 · Police</strong><span>警察 · Tap to call</span></div>${icon('phone','lg')}</a></div><div class="info-band blue" style="margin-top:18px">${icon('message')}<div><strong>Japanese phone script</strong><br>救急です。住所は${safe(data.profile.home||'［住所］')}です。<br><small>“I need an ambulance. My address is …”</small></div></div></section>`;
-    if(step.items) return `<section class="incident-step-card"><h3>Your checklist</h3><p>Do only what is safe. Tap to mark each item; you may continue even if something cannot be done.</p>${step.items.map(([t,j],k)=>`<button class="list-check ${done.includes(k)?'checked':''}" data-action="incident-toggle" data-index="${k}" aria-pressed="${done.includes(k)}"><span class="square">${done.includes(k)?icon('check','sm'):''}</span><span><strong>${safe(t)}</strong><small>${safe(j)}</small></span></button>`).join('')}
+    if(step.n===1) return `<section class="p1b-incident-card p1b-call-card"><p>Call if anyone needs urgent medical assistance or is in danger. These links open the dialer; the app does not place a call by itself.</p><div class="p1b-call-buttons"><a class="p1b-call-primary" href="tel:119"><span><strong>Yes — call 119</strong><small>救急・消防 · Ambulance / Fire</small></span>${icon('phone','lg')}</a><a class="p1b-call-secondary" href="tel:110"><span><strong>Danger / crime — 110</strong><small>警察 · Police</small></span>${icon('phone','lg')}</a></div><div class="p1b-phone-script"><span>SAY ON THE PHONE · 日本語</span><strong>救急です。住所は${safe(data.profile.home||'［住所］')}です。</strong><small>“I need an ambulance. My address is …” Verify your location before speaking.</small></div></section>`;
+    if(step.items) {
+      const statuses=i.outcomes[i.step]||{},cursor=Math.min(i.cursor[i.step]||0,step.items.length);
+      const complete=step.items.filter((_,k)=>done.includes(k)).length;
+      const reviewed=step.items.filter((_,k)=>done.includes(k)||statuses[k]).length;
+      const unresolved=step.items.length-complete;
+      const focused=cursor<step.items.length?step.items[cursor]:null;
+      return `<section class="p1b-incident-card p1b-checklist-card"><div class="p1b-checklist-heading"><div><h2>${i.oneStep?'One item at a time':'Safety checklist'}</h2><p>${reviewed} of ${step.items.length} reviewed · ${unresolved} not confirmed done. If unsafe, choose “Can’t” or “Skip” and continue.</p></div>${action('incident-mode',i.oneStep?'Show full checklist':'One at a time','btn-outline btn-lg')}</div>
+      ${i.oneStep ? (focused ? `<div class="p1b-one-progress">ITEM ${cursor+1} OF ${step.items.length} · ${done.includes(cursor)?'MARKED DONE':statuses[cursor]==='cant'?'CAN’T DO':statuses[cursor]==='skip'?'SKIPPED':'NOT REVIEWED'}</div><div class="p1b-one-item"><h3>${safe(focused[0])}</h3><p lang="ja">${safe(focused[1])}</p></div><div class="p1b-one-actions"><button type="button" class="p1b-one-done" data-action="incident-item-outcome" data-index="${cursor}" data-result="done">Done ${icon('check','sm')}</button><button type="button" class="p1b-one-cant" data-action="incident-item-outcome" data-index="${cursor}" data-result="cant">Can’t do</button><button type="button" class="p1b-one-skip" data-action="incident-item-outcome" data-index="${cursor}" data-result="skip">Skip for now</button></div>${cursor>0?action('incident-item-prev','← Previous item','btn-quiet btn-lg'):''}` : `<div class="p1b-one-summary"><h3>Checklist reviewed</h3><p>${complete} done, ${Object.values(statuses).filter(s=>s==='cant').length} can’t do, ${Object.values(statuses).filter(s=>s==='skip').length} skipped. Unfinished actions are not marked complete. Revisit them if conditions allow.</p>${action('incident-item-restart','Review items again','btn-outline btn-lg')}</div>`) : `<div class="p1b-list-items">${step.items.map(([t,j],k)=>{const status=done.includes(k)?'done':statuses[k]||'pending';return `<button class="p1b-list-item ${status}" data-action="incident-toggle" data-index="${k}" aria-pressed="${status==='done'}" aria-label="${safe(t)} · ${status==='done'?'Done, tap to undo':status==='cant'?'Can’t do; tap to mark done':status==='skip'?'Skipped; tap to mark done':'Not reviewed; tap to mark done'}"><span class="p1b-list-mark">${status==='done'?icon('check','sm'):''}</span><span class="p1b-list-text"><strong>${safe(t)}</strong><small lang="ja">${safe(j)}</small></span><span class="p1b-list-status">${status==='done'?'Done':status==='cant'?'Can’t':status==='skip'?'Skipped':'Pending'}</span></button>`;}).join('')}</div>`}
         ${step.n===2?`<div class="info-band amber" style="margin-top:17px">${icon('alert')}<div>If shaking starts again, drop, cover your head, and hold on. Avoid operating gas equipment if you suspect a leak.</div></div>`:''}
         ${step.n===6?`<div class="link-list" style="margin-top:18px">${link('https://www.jma.go.jp/bosai/','JMA official updates')}${link('https://www.nhk.or.jp/kishou-saigai/','NHK disaster info')}</div>`:''}
         ${step.n===7?`<div class="text-field" style="margin-top:20px"><label for="incident-note">What happened / what to improve</label><textarea id="incident-note" data-save-field="incident.note" placeholder="For your private incident log…">${safe(i.note)}</textarea></div>`:''}
       </section>`;
+    }
     if(step.n===3) return `<section class="incident-step-card"><h3>Draft a safety message</h3><p>Check the details before sending. Copying or opening SMS does not mean a message was delivered.</p>
       <div class="card-soft card-pad"><div class="sublabel">MESSAGE · ENGLISH / 日本語</div><p style="color:#e8efff;font-size:15px">${safe(safetyMessage())}</p><p style="color:#b3bfd6;font-size:14px">無事です。今は${safe(data.profile.safePlace||'［現在地］')}にいます。また連絡します。</p>${action('copy-message',icon('copy','sm')+' Copy message','btn-primary')}</div>
       <div class="section-heading"><h2>Emergency contacts</h2><small>${data.contacts.length} saved</small></div>
@@ -332,23 +355,24 @@
       ['phone','Phone','Battery and charger','phone'],['keys','Keys','Home and work keys','home']
     ];
     const missing=things.filter(([id])=>!data.departure[id]);
-    return pageHeader('DEPARTURE CHECK','Before you walk away.','A two-second check from the prototype. In this version you start it manually; no geofence or Bluetooth tag is connected.')+
-      `<div class="details-grid"><section class="card card-pad"><div class="card-label">TAKE A MOMENT</div><h2 class="card-title">Everything with you?</h2><p class="card-descr">Tap each item to confirm it is physically with you, then finish the check.</p>
-      <div class="checklist-list" style="margin-top:22px">${things.map(([id,title,note,ic])=>`<button class="check-row ${data.departure[id]?'is-done':''}" data-action="departure-toggle" data-id="${id}" aria-pressed="${!!data.departure[id]}"><span class="tile-icon" style="background:transparent">${icon(ic)}</span><span class="check-copy"><strong>${title}</strong><p>${note}</p></span><span class="check-control">${data.departure[id]?icon('check','sm'):''}</span></button>`).join('')}</div>
-      <div class="form-actions">${action('departure-finish',missing.length?'Finish check · '+missing.length+' missing':'All with me · Done',missing.length?'btn-outline btn-full btn-lg':'btn-success btn-full btn-lg')}${action('departure-reset','Reset checks','btn-quiet btn-sm')}</div></section>
-      <section class="card card-pad"><div class="card-label">IF SOMETHING IS MISSING</div><h2 class="card-title">A calm fallback plan.</h2><p class="card-descr">When you're stranded, work through options from simplest to most involved. No costs or distances are assumed.</p>
-      <ol class="return-list">${STRANDED.slice(0,3).map((p,k)=>`<li><span class="number">${k+1}</span><div><h3>${safe(p.title)}</h3><p>${safe(p.description)}</p></div></li>`).join('')}</ol>
-      ${action('go','Open stranded options '+icon('arrow','sm'),'btn-outline btn-full','data-page="stranded"')}
-      <p class="block-note">Future Akatsuki integration could suggest nearby verified options based on location. It is not active in this build.</p></section></div>`;
+    const date=new Date(),day=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Tokyo',weekday:'long',day:'numeric',month:'long'}).format(date);
+    const clock=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false}).format(date);
+    return `<section class="p1b-departure">${pageHeader('DEPARTURE · 手荷物確認','A last check before leaving.','This is a manual in-app lock-screen-style preview, not an operating-system notification. No geofence, Bluetooth tag or automatic departure detection is active.')}
+      <div class="p1b-departure-layout"><div class="p1b-lock-screen" role="group" aria-label="Manual departure reminder preview"><div class="p1b-lock-time"><span>${safe(day)}</span><strong>${safe(clock)}</strong><small>JAPAN STANDARD TIME · IN-APP PREVIEW</small></div>
+        <div class="p1b-notification"><div class="p1b-notification-top"><span class="p1b-notification-icon">${icon('eye','sm')}</span><span>DISASTER MANAGEMENT</span><span class="p1b-notification-manual">MANUAL</span></div><h2>Leaving? Quick check.</h2><p>Tap what you physically have with you. Unchecked means <strong>not confirmed</strong>, not necessarily missing.</p>
+          <div class="p1b-departure-items">${things.map(([id,title,note,ic])=>`<button type="button" class="p1b-departure-item ${data.departure[id]?'confirmed':''}" data-action="departure-toggle" data-id="${id}" aria-pressed="${!!data.departure[id]}"><span class="p1b-departure-icon">${icon(ic)}</span><strong>${title}</strong><small>${data.departure[id]?'With me ✓':'Not checked'}</small><span class="p1b-departure-hint">${safe(note)}</span></button>`).join('')}</div>
+          <div class="p1b-departure-actions">${action('departure-all','All with me · Save','btn-primary btn-lg')}${action('departure-missing',"Something’s missing →",'btn-outline btn-lg')}</div><div class="p1b-notification-bottom"><span>${missing.length} not confirmed</span>${action('go','Not relevant · Dismiss','btn-quiet btn-sm','data-page="watch"')}</div>
+        </div><p class="p1b-lock-disclaimer">A phone lock screen cannot be triggered by this app. Open this page yourself before leaving.</p></div>
+        <aside class="p1b-departure-side"><span class="p1b-subtitle">HOW IT WORKS</span><h3>Two deliberate choices.</h3><p><strong>All with me</strong> records your confirmation and returns to Watch. <strong>Something’s missing</strong> opens practical alternatives, one at a time.</p><div class="p1b-side-note">${icon('info')}<span>Items selected above remain saved until you finish or reset this check. No tag, station, or location has been detected.</span></div>${action('departure-reset','Clear this check','btn-outline btn-lg')}<div class="p1b-side-next"><span>NEXT IF YOU NEED HELP</span><strong>Stranded options</strong><p>Manual suggestions. No claimed route, distance, price or guaranteed service.</p></div></aside>
+      </div></section>`;
   }
   function stranded() {
     const idx=data.strandedStep,p=STRANDED[idx];
-    return pageHeader('FALLBACK PLAN','Stuck without a wallet or pass?','Try one practical option at a time. These are general ideas, not verified nearby locations or guaranteed services.')+
-      `<div class="details-grid"><section class="card card-pad"><div class="eyebrow">OPTION ${idx+1} OF ${STRANDED.length}</div><div class="stepper">${STRANDED.map((_,i)=>`<button class="step-segment ${i<idx?'past':''} ${i===idx?'current':''}" data-action="stranded-select" data-index="${i}" aria-label="Option ${i+1}"></button>`).join('')}</div>
-      <h2 class="page-title" style="font-size:31px">${safe(p.title)}</h2><p class="page-lead">${safe(p.description)}</p>
-      <div class="info-band blue" style="margin-top:24px">${icon('info')}<span>${safe(p.when)}</span></div>
-      <div class="form-actions">${action('stranded-resolved','Resolved · log it','btn-success btn-lg')}${action('stranded-next',idx===STRANDED.length-1?'Start again':'Won’t work · next','btn-outline btn-lg')}</div></section>
-      <section class="card card-pad"><div class="card-label">FALLBACKS</div><h3 class="card-title">All available approaches</h3><ol class="return-list">${STRANDED.map((x,k)=>`<li><span class="number" style="background:${k===idx?'#596ce2':'#26395b'}">${k+1}</span><div style="flex:1"><h3>${safe(x.title)}</h3><p>${safe(x.when)}</p></div><button class="btn btn-outline btn-sm" data-action="stranded-select" data-index="${k}">View</button></li>`).join('')}</ol></section></div>`;
+    return `<section class="p1b-stranded">${pageHeader('STRANDED · 対処','No pass or cash? Take one next step.','You choose each step. These are general manual options; there is no location, tag, timetable or Akatsuki connection.')}
+      <div class="p1b-stranded-card"><div class="p1b-stranded-top"><span class="p1b-number">${idx+1}</span><span>NEXT ACTION · ${idx+1} OF ${STRANDED.length}</span></div><div class="p1b-stranded-bars" role="group" aria-label="Alternative option navigation">${STRANDED.map((_,n)=>`<button type="button" class="${n===idx?'current':''}" data-action="stranded-select" data-index="${n}" aria-label="View option ${n+1}" ${n===idx?'aria-current="step"':''}></button>`).join('')}</div>
+        <h2>${safe(p.title)}</h2><p class="p1b-stranded-instruction">${safe(p.description)}</p><div class="p1b-stranded-facts"><div><span>Distance</span><strong>Unknown</strong></div><div><span>Walk</span><strong>Not calculated</strong></div><div><span>Cost</span><strong>Unverified</strong></div></div><div class="p1b-stranded-check">${icon('info')}<span>${safe(p.when)}. Check conditions before acting.</span></div>
+        <div class="p1b-stranded-actions">${action('stranded-resolved','It worked · Save outcome','btn-success btn-lg')}${action('stranded-next',idx===STRANDED.length-1?'Review from start':'Won’t work · Next →','btn-outline btn-lg')}</div></div>
+      <section class="p1b-stranded-rest"><span class="p1b-subtitle">IF THAT FAILS · OTHER OPTIONS</span><div class="p1b-stranded-list">${STRANDED.map((x,k)=>`<button type="button" class="p1b-stranded-option ${k===idx?'selected':''}" data-action="stranded-select" data-index="${k}" aria-label="Select option ${k+1}: ${safe(x.title)}"><span>${String(k+1).padStart(2,'0')}</span><strong>${safe(x.title)}</strong><small>${safe(x.when)}</small>${icon('chevron','sm')}</button>`).join('')}</div><p>Order is a general starting point, not a verified ranking by distance or price. If unsafe, stop and seek appropriate help. No action is logged as successful until you confirm it.</p></section></section>`;
   }
   function night() {
     const n=data.night;
@@ -471,7 +495,31 @@
     if(name==='incident-toggle'){
       const i=data.incident;const checked=new Set(i.done[i.step]||[]);
       if(checked.has(index))checked.delete(index);else checked.add(index);
-      i.done[i.step]=[...checked];i.active=true;return update();
+      i.done[i.step]=[...checked];
+      if(i.outcomes[i.step])delete i.outcomes[i.step][index];
+      i.active=true;return update();
+    }
+    if(name==='incident-mode'){
+      data.incident.oneStep=!data.incident.oneStep;
+      data.incident.active=true;return update();
+    }
+    if(name==='incident-item-prev'){
+      const i=data.incident;i.cursor[i.step]=Math.max(0,(i.cursor[i.step]||0)-1);
+      i.active=true;return update();
+    }
+    if(name==='incident-item-restart'){
+      const i=data.incident;i.cursor[i.step]=0;i.active=true;return update();
+    }
+    if(name==='incident-item-outcome'){
+      const i=data.incident,step=INC[i.step-1],result=button.dataset.result;
+      if(!step?.items || !Number.isInteger(index) || index<0 || index>=step.items.length
+        || !['done','cant','skip'].includes(result))return;
+      const checked=new Set(i.done[i.step]||[]);
+      i.outcomes[i.step] ||= {};
+      if(result==='done'){checked.add(index);delete i.outcomes[i.step][index];}
+      else {checked.delete(index);i.outcomes[i.step][index]=result;}
+      i.done[i.step]=[...checked];i.cursor[i.step]=index+1;i.active=true;
+      return update();
     }
     if(name==='incident-contact'){const a=new Set(data.incident.contacted||[]);if(a.has(index))a.delete(index);else a.add(index);data.incident.contacted=[...a];return update();}
     if(name==='copy-message') {
@@ -487,10 +535,14 @@
       return toast('SMS composer opened if supported. You must send it yourself.');
     }
     if(name==='finish-incident'){
-      const note=field('incident-note')?.value || data.incident.note || 'Finished the seven-step safety guide.';
-      addLog('Incident guide completed',note);
-      data.incident={active:false,step:1,done:{},contacted:[],note:''};
-      go('log');return toast('Incident guide recorded locally.');
+      const incident=data.incident;
+      const done=Object.values(incident.done).reduce((n,entries)=>n+entries.length,0);
+      const outcomes=Object.values(incident.outcomes).flatMap(entries=>Object.values(entries));
+      const cant=outcomes.filter(v=>v==='cant').length,skipped=outcomes.filter(v=>v==='skip').length;
+      const note=(field('incident-note')?.value || incident.note || '').trim();
+      addLog('Incident guide reviewed',`Manual guide review only; ${done} items marked done, ${cant} can’t do, ${skipped} skipped. Unfinished items are not complete.${note?' Note: '+note:''}`);
+      data.incident=defaults().incident;
+      go('log');return toast('Guide review saved locally; no emergency action was sent.');
     }
     if(name==='departure-toggle'){data.departure[id]=!data.departure[id];return update();}
     if(name==='departure-reset'){data.departure={wallet:false,pass:false,phone:false,keys:false};return update();}
@@ -500,6 +552,15 @@
       addLog('Departure check completed','Wallet, pass, phone and keys confirmed with you.');
       data.departure={wallet:false,pass:false,phone:false,keys:false};
       go('watch');return toast('Departure check saved.');
+    }
+    if(name==='departure-all'){
+      addLog('Departure check confirmed','You personally confirmed wallet, transit pass, phone and keys.');
+      data.departure=defaults().departure;
+      go('watch');return toast('Your manual confirmation was saved.');
+    }
+    if(name==='departure-missing'){
+      data.strandedStep=0;go('stranded');
+      return toast('Try one alternative at a time. Check availability yourself.');
     }
     if(name==='stranded-select'){data.strandedStep=Math.min(STRANDED.length-1,Math.max(0,index));return update();}
     if(name==='stranded-next'){data.strandedStep=(data.strandedStep+1)%STRANDED.length;return update();}

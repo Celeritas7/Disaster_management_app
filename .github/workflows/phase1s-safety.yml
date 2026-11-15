@@ -17,7 +17,7 @@ jobs:
         with:
           node-version: '22'
       - name: Run dependency-free cache, storage and UI-contract tests
-        run: node --test tests/phase1s.test.mjs tests/phase1a.test.mjs
+        run: node --test tests/phase1s.test.mjs tests/phase1a.test.mjs tests/phase1b.test.mjs
       - name: Install browser test dependencies
         run: |
           npm install --no-save --package-lock=false playwright@1.62.1
@@ -31,10 +31,22 @@ jobs:
           REQUIRE_BROWSER: '1'
           DMA_SCREENSHOT_DIR: artifacts/phase1a
         run: node --test tests/phase1a-browser.test.mjs
+      - name: Run Phase 1B mobile and offline interaction checks
+        env:
+          REQUIRE_BROWSER: '1'
+          DMA_SCREENSHOT_DIR: artifacts/phase1b
+        run: node --test tests/phase1b-browser.test.mjs
       - name: Save mobile visual-review screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: phase1a-mobile-reference
           path: artifacts/phase1a/
+          if-no-files-found: ignore
+      - name: Save Phase 1B mobile references
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase1b-mobile-reference
+          path: artifacts/phase1b/
           if-no-files-found: ignore

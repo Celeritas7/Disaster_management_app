@@ -1,0 +1,72 @@
+/* Focused mobile navigation and scroll reduction; no data or permission changes. */
+.mobile-scroll-top[hidden] { display: none !important; }
+.mobile-scroll-top { display: none; }
+
+/* Section links land below the mobile header and sticky Settings shortcuts. */
+#p1c-contacts, #p1c-places, #p1c-data, #p1c-offline,
+#p1c-privacy, #p1c-sources, #p1c-thresholds {
+  scroll-margin-top: 128px;
+}
+
+@media (max-width: 680px) {
+  /* Keep all six areas, including Night, reachable in one tap on narrow phones. */
+  .bottom-nav { gap: 0; justify-content: space-between; }
+  .bottom-nav button {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 48px;
+    padding: 4px 1px;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .bottom-nav button span { font-size: 10px; }
+  .bottom-nav button .ico { width: 21px; height: 21px; }
+
+  /* Shortcuts are always within reach, even halfway down the Settings page. */
+  .p1c-setting-jumps {
+    position: sticky;
+    top: 58px;
+    z-index: 25;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 7px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    background: rgba(11, 17, 29, .97);
+    border: 1px solid #303f59;
+    border-radius: 13px;
+    padding: 8px;
+    margin: 0 0 18px;
+    scrollbar-width: thin;
+  }
+  .p1c-setting-jumps a {
+    flex: 0 0 auto;
+    min-height: 40px;
+    padding: 10px 13px;
+    font-size: 12px;
+    white-space: nowrap;
+    justify-content: center;
+  }
+
+  /* Optional way back from long log, readiness or settings pages. */
+  .mobile-scroll-top {
+    display: flex;
+    position: fixed;
+    bottom: calc(83px + env(safe-area-inset-bottom));
+    right: 13px;
+    z-index: 36;
+    align-items: center;
+    justify-content: center;
+    min-width: 66px;
+    min-height: 44px;
+    padding: 9px 12px;
+    border: 1px solid #657db5;
+    border-radius: 24px;
+    background: #243753;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 650;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .34);
+  }
+}

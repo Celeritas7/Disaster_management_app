@@ -531,8 +531,9 @@
         <main class="workspace" id="main-content">${workerUpdateReady?updateBanner():''}${recoveryRaw!==null?recoveryBanner():''}${content}</main>
       </div>
       <nav class="bottom-nav" aria-label="Mobile navigation">
-        ${[['watch','Watch','eye'],['readiness','Ready','shield'],['incident','Incident','alert'],['night','Night','moon'],['log','Log','log']].map(([p,l,i])=>`<button data-action="go" data-page="${p}" class="${section===p?'active':''} ${p==='incident'?'danger':''}" aria-current="${section===p?'page':'false'}">${icon(i)}<span>${l}</span></button>`).join('')}
+        ${[['watch','Watch','eye'],['readiness','Ready','shield'],['incident','Incident','alert'],['night','Night','moon'],['log','Log','log'],['settings','Settings','settings']].map(([p,l,i])=>`<button data-action="go" data-page="${p}" class="${section===p?'active':''} ${p==='incident'?'danger':''}" aria-current="${section===p?'page':'false'}">${icon(i)}<span>${l}</span></button>`).join('')}
       </nav>
+      <button type="button" class="mobile-scroll-top" data-action="scroll-top" aria-label="Back to top of this page" hidden>↑ Top</button>
     </div>`;
   }
   function recoveryBanner() {
@@ -843,19 +844,7 @@
         ${action('contact-edit','Edit','btn-outline btn-sm',`data-index="${k}"`)}
         ${action('remove-contact','Remove','btn-quiet btn-sm',`data-index="${k}"`)}
       </div></div>`).join('');
-    return group('details','05 · IMPORTANT DETAILS','Addresses and contacts',`<p>Only store details you are comfortable keeping in unencrypted browser storage. Labels show what <strong>you</strong> checked, not a verified system feed or a safe evacuation route.</p>
-      <div class="p1c-settings-two p2a-settings-two">
-        <div class="p1c-settings-form p2a-place-form"><h3>Places · self-reported</h3>
-          ${placeInput('home','home-address','Home address · 自宅住所','Ward / city, chōme, banchi…')}
-          ${placeInput('office','office-address','Office / regular departure point','Optional')}
-          ${placeInput('safePlace','safe-place','Preferred check-in location','Optional meeting place')}
-          ${placeInput('station','preferred-station','Preferred station · 最寄り駅','e.g. Minami-Urawa')}
-          ${placeInput('shelter','shelter-name','Municipal designated shelter · 指定避難所','Use your local municipality’s official list')}
-          <div class="text-field"><label for="shelter-source">Municipality source you checked</label><input id="shelter-source" maxlength="240" value="${safe(data.profile.shelterSource)}" placeholder="Municipality URL or notice title"/><small>Required before marking the shelter as checked. This source is user-entered, not automatically validated.</small></div>
-          <div class="p2a-helper">${icon('info')} If you change a saved value or the shelter source, review its checkbox again. A checked shelter may still close or become inaccessible in a disaster.</div>
-          ${action('save-profile','Save these places','btn-primary')}
-        </div>
-        <div class="p1c-settings-form p2a-contacts-form"><h3>Emergency contacts · in priority order</h3>
+    const contactsForm=`<div id="p1c-contacts" class="p1c-settings-form p2a-contacts-form"><h3>Emergency contacts · in priority order</h3>
           <p>Contacts are kept locally. A drafted SMS is never sent automatically; check the destination and message each time.</p>
           <div class="p2a-helper" role="status">${data.contacts.length?missing.join(' ')||'Primary and backup roles assigned.':'No contacts saved. Add a trusted person, then assign primary and backup roles.'}</div>
           ${editing?`<p class="p2a-editing">Editing ${safe(editing.name)} · Priority ${contactEditIndex+1}</p>`:''}
@@ -865,8 +854,19 @@
           <div class="p2a-contact-controls">${action(editing?'save-contact':'add-contact',editing?'Save contact changes':'Add contact','btn-primary')}${editing?action('contact-cancel','Cancel edit','btn-outline'):''}</div>
           <div class="p1c-contact-list" aria-label="Saved emergency contacts">${data.contacts.length?personCards:'<p>No contacts saved.</p>'}</div>
           <p class="p2a-disclaimer">Up/down controls set the order used by the emergency message screen. Existing records without assigned roles stay <strong>unassigned</strong> until you edit them.</p>
-        </div>
-      </div>`);
+        </div>`;
+    const placesForm=`<div id="p1c-places" class="p1c-settings-form p2a-place-form"><h3>Places · self-reported</h3>
+          ${placeInput('home','home-address','Home address · 自宅住所','Ward / city, chōme, banchi…')}
+          ${placeInput('office','office-address','Office / regular departure point','Optional')}
+          ${placeInput('safePlace','safe-place','Preferred check-in location','Optional meeting place')}
+          ${placeInput('station','preferred-station','Preferred station · 最寄り駅','e.g. Minami-Urawa')}
+          ${placeInput('shelter','shelter-name','Municipal designated shelter · 指定避難所','Use your local municipality’s official list')}
+          <div class="text-field"><label for="shelter-source">Municipality source you checked</label><input id="shelter-source" maxlength="240" value="${safe(data.profile.shelterSource)}" placeholder="Municipality URL or notice title"/><small>Required before marking the shelter as checked. This source is user-entered, not automatically validated.</small></div>
+          <div class="p2a-helper">${icon('info')} If you change a saved value or the shelter source, review its checkbox again. A checked shelter may still close or become inaccessible in a disaster.</div>
+          ${action('save-profile','Save these places','btn-primary')}
+        </div>`;
+    return group('details','05 · IMPORTANT DETAILS','Contacts and places',`<p>Only store details you are comfortable keeping in unencrypted browser storage. Labels show what <strong>you</strong> checked, not a verified system feed or a safe evacuation route.</p>
+      <div class="p1c-settings-two p2a-settings-two">${contactsForm}${placesForm}</div>`);
   }
   function hasPreimportSnapshot() {
     try {return localStorage.getItem(PREIMPORT_KEY)!==null;} catch {return false;}
@@ -895,7 +895,7 @@
     const dataGroup=group('data','06 · DATA MANAGEMENT','Backup, privacy and recovery',`<p>Backups include any saved or draft evidence photos, plus your addresses, contacts and logs. <strong>Unencrypted JSON is readable by anyone with the file.</strong> Both formats can be imported after a preview, without any network service.</p><div class="p2c-backup-controls"><div class="p2c-export-card"><strong>Standard JSON · no password</strong><small>Compatible with older app backups. Store it privately.</small>${action('export',icon('download','sm')+' Export JSON backup','btn-outline')}</div><div class="p2c-export-card"><strong>Encrypted JSON · optional</strong><small>AES-GCM encryption with a password you choose. Password is never saved or sent.</small><div class="text-field"><label for="p2c-export-password">Backup password (12–256 characters)</label><input id="p2c-export-password" type="password" autocomplete="new-password" minlength="12" maxlength="256" /></div><div class="text-field"><label for="p2c-export-confirm">Confirm password</label><input id="p2c-export-confirm" type="password" autocomplete="new-password" minlength="12" maxlength="256" /></div>${action('export-encrypted',icon('download','sm')+' Export encrypted backup','btn-primary')}<small>Keep this password safely: there is no recovery option.</small></div></div><div class="p2c-import-controls"><label class="btn btn-outline" for="import-json" style="cursor:pointer">Choose backup to preview</label><input id="import-json" type="file" accept="application/json,.json" style="display:none"/>${hasPreimportSnapshot()?`${action('preview-previous','Review previous local copy','btn-outline')}${action('download-previous','Download previous copy','btn-outline')}`:''}</div>${importPreview()}<div class="p1c-night-actions">${action('go','Review setup tour','btn-outline','data-page="onboard"')}${action('erase',icon('trash','sm')+' Erase this app’s records','btn-danger')}</div><p class="p2c-footnote">The previous-copy slot is a second, <strong>unencrypted</strong> copy in this same browser, retained until the next successful restore or erasure. It is not a remote backup. Erasing removes only this app’s record and recovery copy, not unrelated app storage.</p><div class="p2c-sync-status"><strong>Account / secure sync · design stage only</strong><p>No account, server, Akatsuki contract or automatic upload is active. Future sync needs explicit per-data-category consent, verified authentication, encryption and conflict recovery.</p><span class="p2c-unconnected">Not connected</span></div>`);
     function nLimitLabel(){return data.night.limit===0?'Alcohol-free (0)':String(data.night.limit)+' drinks';}
     return `<section class="p1c-settings">${pageHeader('SETTINGS · 設定','Clarity and control.','Review your connected sources, privacy, manual thresholds, offline status, addresses, and backups.')}
-      <nav class="p1c-setting-jumps" aria-label="Settings sections">${[['sources','Sources'],['privacy','Privacy'],['thresholds','Limits'],['offline','Offline'],['details','Contacts & places'],['data','Backups']].map(([id,label])=>`<a href="#p1c-${id}">${label}</a>`).join('')}</nav>
+      <nav class="p1c-setting-jumps" aria-label="Jump to Settings section">${[['contacts','Contacts'],['data','Backups'],['places','Places'],['offline','Offline'],['privacy','Privacy'],['sources','Sources'],['thresholds','Limits']].map(([id,label])=>`<a href="#p1c-${id}">${label}</a>`).join('')}</nav>
       ${sources}${privacy}${thresholds}${offline}${places}${dataGroup}</section>`;
   }
   function onboarding() {
@@ -915,10 +915,15 @@
       </div>
     </section>`;
   }
+  function updateScrollTopVisibility() {
+    const topButton=app.querySelector('.mobile-scroll-top');
+    if(topButton)topButton.hidden=window.scrollY<360;
+  }
   function render() {
     const pages={watch,readiness,incident,departure,stranded,night:nightPhase1C,log:logPhase1C,settings:settingsPhase1C,reflection:reflectionPhase1C,onboard:onboarding};
     const current=pages[data.page]||watch;
     app.innerHTML=shell(current());
+    updateScrollTopVisibility();
     document.title='Disaster Management · '+({watch:'Watch',readiness:'Readiness',incident:'Emergency guide',departure:'Departure check',stranded:'Stranded options',night:'Night Out',log:'Activity log',settings:'Settings',reflection:'After-action',onboard:'Setup'}[data.page]||'Watch');
   }
   function safetyMessage() {
@@ -1250,6 +1255,7 @@
       document.getElementById('update-notice')?.remove();return;
     }
     if(name==='go') return go(button.dataset.page);
+    if(name==='scroll-top')return window.scrollTo({top:0,behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
     if(name==='check-browser-permissions')return checkBrowserPermissions().catch(()=>toast('Could not check browser permissions. Manual features still work.'));
     if(name==='test-location-once')return testLocationOnce();
     if(name==='request-persistent-storage')return requestPersistentStorage();
@@ -1701,6 +1707,7 @@
   });
   window.addEventListener('online',()=>{netOnline=true;render();});
   window.addEventListener('offline',()=>{netOnline=false;render();});
+  window.addEventListener('scroll',updateScrollTopVisibility,{passive:true});
   if(typeof window.setInterval==='function')window.setInterval(()=>{
     const current=app.querySelector('[data-p1c-countdown]');
     if(current)current.textContent=manualCountdown(data.night.leaveAt);

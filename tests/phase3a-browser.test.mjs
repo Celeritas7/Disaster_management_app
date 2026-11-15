@@ -10,7 +10,7 @@ let chromium;
 try {({chromium}=createRequire(import.meta.url)('playwright'));} catch {/* CI requires Playwright. */}
 const root=process.env.DMA_TEST_ROOT||join(dirname(fileURLToPath(import.meta.url)),'..');
 const prefix='/Disaster_management_app/';
-const files=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','phase2a.css','phase2b.css','phase2c.css','phase3a.css','phase3b.css','phase3c.css',
+const files=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','phase2a.css','phase2b.css','phase2c.css','phase3a.css','phase3b.css','phase3c.css','mobile-ux.css',
   'service-worker.js','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
 const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 const KEY='disaster-management:v1';
@@ -117,7 +117,7 @@ test('Phase 3A: mobile help, missed-step resume, phone fallback, simplified/offl
   await page.getByRole('heading',{name:'Stay or evacuate?'}).waitFor();
   assert.equal(await page.locator('a[href="tel:119"]').count()>0,true);
   const after=await page.evaluate(async()=>({caches:await caches.keys(),record:JSON.parse(localStorage.getItem('disaster-management:v1'))}));
-  assert.ok(after.caches.includes('disaster-management-app-v12'));
+  assert.ok(after.caches.includes('disaster-management-app-v13'));
   assert.equal(after.record.incident.stepOutcomes['1'],'skip');
   assert.equal(after.record.incident.oneStep,true);
   assert.equal(after.record.contacts[0].name,'Family');

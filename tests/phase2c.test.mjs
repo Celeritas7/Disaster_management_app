@@ -216,7 +216,7 @@ test('PWA caches Phase 2C styling with the latest owned shell, preserving v1 sto
   assert.match(html,/href="\.\/phase2c\.css"/);
   assert.match(css,/\.p2c-preview/);
   assert.match(css,/@media\(max-width:420px\)/);
-  assert.match(worker,/disaster-management-app-v12/);
+  assert.match(worker,/disaster-management-app-v13/);
   assert.match(worker,/\.\/phase2c\.css/);
   assert.match(script,/const KEY = 'disaster-management:v1'/);
   assert.doesNotMatch(script,/localStorage\.clear\(/);

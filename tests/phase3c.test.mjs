@@ -150,7 +150,7 @@ test('malformed photo data in an imported v1 record is quarantined; original byt
 test('shell and backup remain v1, no cloud asset or unscoped cache clearing',()=>{
   assert.match(js,/const KEY = 'disaster-management:v1'/);
   assert.match(html,/\.\/phase3c\.css/);
-  assert.match(sw,/disaster-management-app-v12/);
+  assert.match(sw,/disaster-management-app-v13/);
   assert.match(sw,/\.\/phase3c\.css/);
   assert.match(sw,/OWNED_CACHE/);
   assert.doesNotMatch(js,/localStorage\.clear\(/);

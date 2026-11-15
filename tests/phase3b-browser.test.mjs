@@ -10,7 +10,7 @@ let chromium;
 try {({chromium}=createRequire(import.meta.url)('playwright'));}catch {/* Chromium mandatory in CI. */}
 const root=process.env.DMA_TEST_ROOT||join(dirname(fileURLToPath(import.meta.url)),'..');
 const prefix='/Disaster_management_app/';
-const files=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','phase2a.css','phase2b.css','phase2c.css','phase3a.css','phase3b.css','phase3c.css',
+const files=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','phase2a.css','phase2b.css','phase2c.css','phase3a.css','phase3b.css','phase3c.css','mobile-ux.css',
   'service-worker.js','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
 const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 const KEY='disaster-management:v1';
@@ -139,7 +139,7 @@ test('Phase 3B: bilingual previews, priority SMS, interrupted drafts, old v1 and
   await page.locator('#p3b-message-preview').waitFor();
   assert.match(await page.locator('.p3b-recipient').nth(1).innerText(),/delivery UNKNOWN/);
   const after=await page.evaluate(async()=>({caches:await caches.keys(),record:JSON.parse(localStorage.getItem('disaster-management:v1'))}));
-  assert.ok(after.caches.includes('disaster-management-app-v12'));
+  assert.ok(after.caches.includes('disaster-management-app-v13'));
   assert.equal(after.record.version,1);
   assert.equal(after.record.profile.home,'Historic home — NOT CURRENT');
   assert.equal(after.record.logs.at(-1).note,'Preserve me');

@@ -56,11 +56,13 @@ Status notation: `[x]` completed in the named work branch; `[ ]` pending. A chec
 
 ## Phase 1C — Restore Night Out, after-action, log and settings layout
 
-- [ ] **P1C-01** Compare `SS-09–13` and implement all five Night Out UI states plus optional counter/timer presentation (`NO-01,NO-05–08,NO-13–14,NO-20–21`).
-- [ ] **P1C-02** Restore low-friction after-action three-step hierarchy and selectable decision-point UI as editable **suggestions** (`AA-01–03,AA-08`).
-- [ ] **P1C-03** Restore log status/trigger visual hierarchy without seeding invented personal events (`LG-01–08`).
-- [ ] **P1C-04** Group Settings into sources, privacy, thresholds, offline cache, contacts/addresses and data management; label unavailable integrations accurately (`SE-01–20`).
-- [ ] **P1C-05** Test all page transitions with actual saved local data and with no contacts, no checkmarks and no past events.
+- [x] **P1C-01** Original `SS-09–13` reviewed; five Night Out states, optional counter/timer, manual drink-limit stepper, and bilingual 119 emergency handoff implemented. Timer uses a user-specified Japan time and does not pretend to know last trains (`NO-01,NO-05–08,NO-13–14,NO-20–21`).
+- [x] **P1C-02** Three-step reflection hierarchy and three **generic, editable** decision-point examples implemented. Saved rule text does not auto-fire (`AA-01–03,AA-08`).
+- [x] **P1C-03** Activity timeline, typed manual status badges, accurate unknown status for legacy entries, saved inactive rules and real empty states implemented; no fictitious personal history (`LG-01–08`).
+- [x] **P1C-04** Settings divided into six navigable groups for source status, privacy, thresholds, offline, contacts/addresses and backup/erase with non-connected integrations labeled correctly (`SE-01–20`).
+- [x] **P1C-05** Local old-v1/empty-record tests, manual time rollover, no contacts, transitions and browser test script implemented. **CI and physical-device acceptance remain separate release gates.**
+
+**Phase 1C implementation report:** [PHASE1C_IMPLEMENTATION_REPORT.md](PHASE1C_IMPLEMENTATION_REPORT.md). Checkmarks indicate completed review-branch code, not deployment or device acceptance.
 
 **Exit gate:** Original UI concepts are visually recognizable and functional manual flows continue working. Original developer-only previews (`UX-04,UX-06–08`) are not shipped as fake operating-system features.
 

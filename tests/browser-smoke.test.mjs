@@ -13,8 +13,8 @@ catch { /* Playwright is optional for this static, dependency-free web app. */ }
 const root = process.env.DMA_TEST_ROOT || join(dirname(fileURLToPath(import.meta.url)), '..');
 const prefix = '/Disaster_management_app/';
 const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'};
-const allowed = new Set(['index.html','app.js','service-worker.js','styles.css','phase1b.css','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
-let swRevision = 'v5';
+const allowed = new Set(['index.html','app.js','service-worker.js','styles.css','phase1b.css','phase1c.css','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
+let swRevision = 'v6';
 
 test('a real Chromium install preserves other apps and local data across offline and worker upgrades', {timeout:90000}, async t => {
   if (!chromium) {
@@ -27,8 +27,8 @@ test('a real Chromium install preserves other apps and local data across offline
     if (!allowed.has(name)) {res.writeHead(404);res.end('Not found');return;}
     try {
       let body = readFileSync(join(root,name));
-      if(name === 'service-worker.js' && swRevision === 'v6')
-        body = Buffer.from(body.toString('utf8').replace("disaster-management-app-v5'", "disaster-management-app-v6'"));
+      if(name === 'service-worker.js' && swRevision === 'v7')
+        body = Buffer.from(body.toString('utf8').replace("disaster-management-app-v6'", "disaster-management-app-v7'"));
       const ext = name === 'manifest.webmanifest' ? '.webmanifest' : name.slice(name.lastIndexOf('.'));
       res.writeHead(200,{'Content-Type':types[ext]||'application/octet-stream','Cache-Control':'no-store'});
       res.end(body);
@@ -60,7 +60,7 @@ test('a real Chromium install preserves other apps and local data across offline
   await page.getByRole('button',{name:'Save these places'}).click();
   await page.locator('#contact-name').fill('Emergency test contact');
   await page.locator('#contact-phone').fill('+819011112222');
-  await page.getByRole('button',{name:'Add',exact:true}).click();
+  await page.getByRole('button',{name:'Add contact'}).click();
   let old = await page.evaluate(()=>JSON.parse(localStorage.getItem('disaster-management:v1')));
   assert.equal(old.profile.home,'Saitama safe home');
   assert.equal(old.contacts[0].name,'Emergency test contact');
@@ -73,18 +73,18 @@ test('a real Chromium install preserves other apps and local data across offline
 
   // A revised worker must update its shell without disturbing an active form.
   await page.locator('#home-address').fill('text not yet saved');
-  swRevision = 'v6';
+  swRevision = 'v7';
   await page.evaluate(async()=>{const reg=await navigator.serviceWorker.getRegistration();await reg.update();});
   await page.getByRole('button',{name:'Reload to update'}).waitFor({timeout:15000});
   assert.equal(await page.locator('#home-address').inputValue(),'text not yet saved');
   // Worker activation/cache cleanup can finish after the controller event.
   await page.waitForFunction(async()=>{
     const names=await caches.keys();
-    return names.includes('disaster-management-app-v6') && !names.includes('disaster-management-app-v5');
+    return names.includes('disaster-management-app-v7') && !names.includes('disaster-management-app-v6');
   },null,{timeout:8000});
   let keys = await page.evaluate(()=>caches.keys());
   assert.ok(keys.includes('kg-chart-offline-v1'));
-  assert.ok(keys.includes('disaster-management-app-v6'));
+  assert.ok(keys.includes('disaster-management-app-v7'));
   // An in-flight old worker can briefly reopen its own old cache; the wait
   // above verifies that the new worker did clean it during activation.
 
@@ -95,7 +95,7 @@ test('a real Chromium install preserves other apps and local data across offline
   await page.reload({waitUntil:'domcontentloaded',timeout:15000});
   await page.getByRole('button',{name:'Settings & contacts'}).click();
   assert.equal(await page.locator('#home-address').inputValue(),'Saitama safe home');
-  assert.equal(await page.locator('.contact-name').first().innerText(),'Emergency test contact');
+  assert.equal(await page.locator('.p1c-setting-contact strong').first().innerText(),'Emergency test contact');
 
   // A future/unknown storage version must be exportable but never overwritten.
   const quarantined = await page.evaluate(()=>{

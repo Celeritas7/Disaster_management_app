@@ -45,6 +45,15 @@
     {title:'Contact someone you trust',description:'Ask a colleague or friend for help, a transfer, or a place to wait.',when:'Use saved contacts if possible'},
     {title:'Seek help at a nearby 交番',description:'For urgent trouble, explain the situation at a police box. Financial assistance is not guaranteed.',when:'Avoid travelling to a closed or distant office'}
   ];
+  // Generic, editable examples from the reference reflection screen. Never
+  // infer that any of these events actually occurred for this user.
+  const REFLECTION_IDEAS = [
+    {point:'I skipped a check before leaving.',rule:'Check the essentials before I leave next time.'},
+    {point:'I followed someone else’s plan instead of my own.',rule:'Pause and choose what I actually want to do.'},
+    {point:'I ignored a time or spending limit I had chosen.',rule:'Review my limit before making the next decision.'}
+  ];
+  const LOG_KINDS = ['manual','departure','stranded','incident','night','reflection'];
+  const LOG_STATUSES = ['recorded','confirmed','resolved','reviewed','saved'];
   const TOUR = [
     {jp:'はじめに',title:'A quiet watcher for a loud country.',body:'Disaster Management helps you prepare and walks you through difficult moments. Its first version works manually, even without a live feed.',points:[['Guided seven-step earthquake response','Offline guide'],['Checklist, contacts and safety notes','Saved here'],['Weather and quake monitoring','Not connected']]},
     {jp:'持ち出し',title:'Make your emergency kit visible.',body:'A readiness score is only useful when it reflects things you have genuinely checked.',points:[['Mark each item when verified','No assumptions'],['Prepare water, food and a go-bag','Your checklist'],['Remember to review dates','Manual']]},
@@ -91,7 +100,7 @@
     return {version:VERSION,page:'watch',tourStep:0,tourDone:false,profile:{home:'',office:'',shelter:'',safePlace:''},
       checks:{},contacts:[],incident:{active:false,step:1,done:{},contacted:[],note:'',oneStep:false,cursor:{},outcomes:{}},
       departure:{wallet:false,pass:false,phone:false,keys:false},strandedStep:0,
-      night:{phase:'idle',limit:2,budget:3000,leave:'23:30',mode:'train',drinks:0,spent:0,note:'',costHistory:[]},
+      night:{phase:'idle',limit:2,budget:3000,leave:'23:30',leaveAt:null,mode:'train',drinks:0,spent:0,note:'',costHistory:[]},
       scenario:false,logs:[],rules:[]};
   }
   function normalize(raw) {
@@ -133,15 +142,20 @@
     const night=obj(raw.night);
     d.night.phase=['idle','pre','live','after','drunk'].includes(night.phase)?night.phase:'idle';
     d.night.limit=num(night.limit,30,2);d.night.budget=num(night.budget,1000000,3000);
-    d.night.leave=/^\d{2}:\d{2}$/.test(str(night.leave,5))?night.leave:'23:30';
+    d.night.leave=nextManualLeaveTime(str(night.leave,5))?night.leave:'23:30';
+    d.night.leaveAt=Number.isSafeInteger(night.leaveAt)&&night.leaveAt>946684800000&&night.leaveAt<4102444800000?night.leaveAt:null;
     d.night.mode=['train','taxi','walk','other'].includes(night.mode)?night.mode:'train';
-    d.night.drinks=num(night.drinks,500);d.night.spent=num(night.spent,10000000);
+    d.night.drinks=num(night.drinks,500);d.night.spent=num(night.spent,50000000);
     d.night.note=str(night.note,500);
     d.night.costHistory=(Array.isArray(night.costHistory)?night.costHistory:[])
       .filter(x=>Number.isInteger(x)&&x>=0&&x<=100000).slice(-500);
     d.scenario=!!raw.scenario;
+    // Existing records lack kind/status. Keep them visible as legacy entries;
+    // do not infer successful actions or real-world events from a title alone.
     d.logs=(Array.isArray(raw.logs)?raw.logs:[]).filter(x=>x && typeof x.title==='string').slice(0,150)
-      .map(x=>({date:str(x.date,75),title:str(x.title,100),note:str(x.note,700)}));
+      .map(x=>({date:str(x.date,75),title:str(x.title,100),note:str(x.note,700),
+        kind:LOG_KINDS.includes(x.kind)?x.kind:'legacy',
+        status:LOG_STATUSES.includes(x.status)?x.status:'unknown'}));
     d.rules=(Array.isArray(raw.rules)?raw.rules:[]).filter(x=>x && typeof x.title==='string').slice(0,100)
       .map(x=>({title:str(x.title,250),trigger:str(x.trigger,250),date:str(x.date,75)}));
     return d;
@@ -183,11 +197,32 @@
   let workerUpdateReady = false;
   // Presentation-only choice. Do not migrate or rewrite existing version-1 records.
   let watchLayout = 'radar';
+  let nightLayout = 'counters';
   const app = document.getElementById('app');
   const readyCount = () => CHECKS.reduce((n,c) => n+(data.checks[c.id] ? c.pts : 0),0);
   const doneCount = () => CHECKS.filter(c => data.checks[c.id]).length;
   const when = () => new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Tokyo',day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date());
   const yen = n => '¥'+Number(n || 0).toLocaleString('en-JP');
+  // Japan has a fixed UTC+09:00 offset. Capture the *specific* next occurrence
+  // of a user's selected leave time when their plan starts. Once it passes,
+  // never silently roll the target over to tomorrow.
+  function nextManualLeaveTime(hhmm,now=Date.now()) {
+    const match=/^(\d{2}):(\d{2})$/.exec(hhmm||'');
+    if(!match)return null;
+    const hour=Number(match[1]),minute=Number(match[2]);
+    if(hour>23||minute>59)return null;
+    const local=new Date(now+9*60*60*1000);
+    const midnight=Date.UTC(local.getUTCFullYear(),local.getUTCMonth(),local.getUTCDate());
+    let target=midnight+(hour*60+minute)*60000-9*60*60*1000;
+    if(target<=now)target+=86400000;
+    return target;
+  }
+  function manualCountdown(target) {
+    if(!Number.isSafeInteger(target))return 'Not available for older plans';
+    const seconds=Math.ceil((target-Date.now())/1000);
+    if(seconds<=0)return 'Chosen leave time passed';
+    return `${String(Math.floor(seconds/3600)).padStart(2,'0')}:${String(Math.floor(seconds%3600/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`;
+  }
   const item = (title, note, right = '') => `<li><span>${safe(title)}<br><small class="muted">${safe(note)}</small></span><span>${right}</span></li>`;
   function save() {
     if(recoveryRaw!==null)return false; // Never overwrite an unreadable backup.
@@ -374,68 +409,90 @@
         <div class="p1b-stranded-actions">${action('stranded-resolved','It worked · Save outcome','btn-success btn-lg')}${action('stranded-next',idx===STRANDED.length-1?'Review from start':'Won’t work · Next →','btn-outline btn-lg')}</div></div>
       <section class="p1b-stranded-rest"><span class="p1b-subtitle">IF THAT FAILS · OTHER OPTIONS</span><div class="p1b-stranded-list">${STRANDED.map((x,k)=>`<button type="button" class="p1b-stranded-option ${k===idx?'selected':''}" data-action="stranded-select" data-index="${k}" aria-label="Select option ${k+1}: ${safe(x.title)}"><span>${String(k+1).padStart(2,'0')}</span><strong>${safe(x.title)}</strong><small>${safe(x.when)}</small>${icon('chevron','sm')}</button>`).join('')}</div><p>Order is a general starting point, not a verified ranking by distance or price. If unsafe, stop and seek appropriate help. No action is logged as successful until you confirm it.</p></section></section>`;
   }
-  function night() {
+  function nightPhase1C() {
     const n=data.night;
-    if(n.phase==='idle') return pageHeader('PERSONAL SAFETY','Set limits before the first drink.','A practical safety flow from your prototype. You start it manually; no calendar connection or drinking detection exists yet.')+
-      `<div class="details-grid"><section class="card card-pad" style="background:radial-gradient(ellipse at 90% 0%,rgba(100,100,200,.16),transparent 60%),#141c32"><span class="tile-icon green">${icon('moon')}</span><h2 class="page-title" style="font-size:32px">Make tomorrow easier.</h2><p class="page-lead">Decide how much to spend, when to leave and how to get home before the night starts.</p><div class="form-actions">${action('night-pre','Plan a night out '+icon('arrow','sm'),'btn-primary btn-lg')}</div></section>
-      <section class="card card-pad"><div class="card-label">YOUR PLAN WILL TRACK</div><ul class="tiny-list">${item('Drinks','Your personally selected limit','Manual')}${item('Spending','What you enter as you go','Yen')}${item('Leave by','Your chosen departure time','Reminder on screen')}${item('If someone needs help','Emergency steps and 119','Japan')}</ul><p class="block-note">This app cannot send push notifications or automatically prevent drinking.</p></section></div>`;
-    if(n.phase==='pre') return pageHeader('NIGHT OUT · BEFORE','Decide now, follow later.','Make a simple personal commitment while your judgement is clear.')+
-      `<div class="card card-pad" style="max-width:760px"><div class="card-label">MY PLAN</div>
-      <div class="field-grid" style="margin-top:22px"><div class="text-field"><label for="night-limit">Maximum drinks</label><input id="night-limit" type="number" min="0" max="30" value="${Number(n.limit)}" /></div><div class="text-field"><label for="night-budget">Spending limit (¥)</label><input id="night-budget" type="number" min="0" step="100" value="${Number(n.budget)}" /></div>
-      <div class="text-field"><label for="night-leave">Leave by</label><input id="night-leave" type="time" value="${safe(n.leave)}" /></div><div class="text-field"><label for="night-mode">Getting home</label><select id="night-mode"><option value="train" ${n.mode==='train'?'selected':''}>Train</option><option value="taxi" ${n.mode==='taxi'?'selected':''}>Taxi</option><option value="walk" ${n.mode==='walk'?'selected':''}>Walk</option><option value="other" ${n.mode==='other'?'selected':''}>Other</option></select></div></div>
-      <div class="info-band blue" style="margin-top:20px">${icon('info')}<div>Your departure time is self-entered, not checked against an actual train timetable. Verify the last train separately.</div></div>
-      <div class="form-actions">${action('night-start','Lock this plan & start','btn-primary btn-lg')}${action('night-idle','Cancel','btn-quiet')}</div></div>`;
-    if(n.phase==='drunk') return pageHeader('SAFETY CHECK','Someone is very intoxicated.','If you suspect alcohol poisoning or someone is unresponsive, seek immediate emergency help.')+
-      `<section class="incident-hero"><div class="eyebrow">URGENT · 急性アルコール中毒</div><h2>Call 119 for emergency symptoms.</h2><p class="jp-sub">救急車を呼ぶ · 119</p><div class="callout-steps" style="margin-top:20px"><div class="callout"><strong class="red">RED FLAGS</strong><ul><li>Cannot wake them</li><li>Slow or irregular breathing</li><li>Seizure or severe confusion</li><li>Blue or very pale skin</li></ul></div><div class="callout neutral"><strong>WHILE WAITING FOR HELP</strong><ul><li>Stay with the person</li><li>If breathing, position on their side</li><li>Do not give more alcohol</li><li>Follow dispatcher instructions</li></ul></div></div><div class="form-actions"><a class="btn btn-danger btn-lg" href="tel:119">${icon('phone')} Call 119</a>${action('night-live','Back to night','btn-outline')}</div></section>`;
-    if(n.phase==='after') return pageHeader('NIGHT OUT · AFTER','Close the loop.','Record the evening honestly. Your notes are for you alone.')+
-      `<div class="details-grid"><section class="card card-pad"><div class="card-label">THE NUMBERS</div><div class="night-stat"><div><span>Drinks</span><strong>${n.drinks} / ${n.limit}</strong></div><div><span>Spent</span><strong>${yen(n.spent)}</strong></div><div><span>Budget</span><strong>${yen(n.budget)}</strong></div></div>
-      <div class="text-field"><label for="night-note">What worked / what should change?</label><textarea id="night-note" placeholder="One thing to keep in mind next time…">${safe(n.note)}</textarea></div><div class="form-actions">${action('night-log','Save night to log','btn-primary btn-lg')}${action('night-live','Back to tracking','btn-outline')}</div></section>
-      <section class="card card-pad"><div class="card-label">AFTER-ACTION</div><h2 class="card-title">One useful lesson beats ten regrets.</h2><p class="card-descr">After logging, you can create one specific rule and see it in your personal activity log.</p></section></div>`;
-    const atLimit=n.drinks>=n.limit,overBudget=n.spent>=n.budget;
-    return pageHeader('NIGHT OUT · IN PROGRESS','Stay with the plan you chose.','These counters update only when you tap them; there is no automatic monitoring.')+
-      `<div class="details-grid"><section class="card card-pad"><div class="card-label">CURRENT NIGHT</div><div class="night-stat"><div><span>Drinks</span><strong class="${atLimit?'amber':''}">${n.drinks} / ${n.limit}</strong></div><div><span>Spent</span><strong class="${overBudget?'amber':''}">${yen(n.spent)}</strong></div><div><span>Leave by</span><strong>${safe(n.leave)}</strong></div></div>
-      <div class="night-status ${atLimit||overBudget?'limit':''}"><div class="card-label">${atLimit||overBudget?'LIMIT REACHED':'ON TRACK'}</div><h2>${atLimit?'Your last sober decision matters.':overBudget?'You reached your budget.':'You’re following your plan.'}</h2><p>${atLimit?'You decided to stop at '+n.limit+' drinks before going out.':overBudget?'You set a spending limit of '+yen(n.budget)+'.':'Decide whether to continue, stop here, or head home.'}</p></div>
-      <div class="section-heading"><h2>Log as you go</h2></div>
-      <div class="field-grid"><div class="text-field"><label for="drink-cost">Cost of next drink (¥)</label><input id="drink-cost" type="number" min="0" step="50" value="650"/></div><div class="text-field"><label>Spend manually</label><div style="display:flex;gap:8px">${action('night-plus','+1 drink','btn-outline btn-full')}${action('night-undo','Undo','btn-outline')}</div></div></div>
-      <div class="form-actions">${action('night-after','I’m heading home','btn-primary btn-lg')}${action('night-drunk','Someone needs help','btn-danger')}</div></section>
-      <section class="card card-pad"><div class="card-label">REMEMBER</div><h2 class="card-title">You made a decision for a reason.</h2><ul class="list-plain"><li>${icon('check')}<span>Your spending cap: <strong>${yen(n.budget)}</strong></span></li><li>${icon('check')}<span>Your drink limit: <strong>${n.limit}</strong></span></li><li>${icon('check')}<span>Getting home: <strong>${safe(n.mode)}</strong> · leave <strong>${safe(n.leave)}</strong></span></li></ul><div class="info-band amber" style="margin-top:23px">${icon('alert')}<div>Never let a heavily intoxicated person go home alone. Call 119 for severe symptoms, and follow emergency dispatcher instructions.</div></div></section></div>`;
+    const smallNote='<p class="p1c-disclaimer">Manual tools only · No calendar, railway timetable, last-train calculation, phone alerts or drinking sensor is connected. For emergencies, call 119 yourself.</p>';
+    const head=(phase,title,desc)=>pageHeader('NIGHT OUT · '+phase,title,desc);
+    const stat=(label,value,detail='')=>`<div class="p1c-night-stat"><span>${safe(label)}</span><strong>${safe(value)}</strong>${detail?`<small>${safe(detail)}</small>`:''}</div>`;
+    if(n.phase==='idle') {
+      const saved=data.logs.filter(e=>e.kind==='night').length;
+      return `<section class="p1c-night">${head('READY','Nothing planned tonight.','Start a manual plan before a night out, including alcohol-free evenings.')}
+        <div class="p1c-night-hero"><span class="p1c-overline">YOUR CHOICE · BEFORE THE NIGHT</span><h2>Make tomorrow easier.</h2><p>Set a personal limit, a budget, a leave time and a way home. Nothing starts automatically.</p>${action('night-pre','Start a night out now '+icon('arrow','sm'),'btn-primary btn-lg')}</div>
+        <section class="p1c-note-panel"><div class="p1c-overline">YOUR RECORD</div><h3>${saved?saved+' saved night'+(saved===1?'':'s'):'No night history yet'}</h3><p>${saved?'Only nights you recorded in this browser are counted.':'The sample three-night history and personalized patterns in the original design were illustrations.'}</p>${action('go','View your activity log','btn-outline','data-page="log"')}</section>${smallNote}</section>`;
+    }
+    if(n.phase==='pre') {
+      return `<section class="p1c-night">${head('BEFORE','Decide before the first drink.','The values below are your own choices, not calendar predictions or advice about a safe alcohol quantity.')}
+        <div class="p1c-night-main"><span class="p1c-overline">MY PLAN · EDITABLE</span><div class="p1c-limit-row"><label for="night-limit">Drinks limit <small>0 = alcohol-free</small></label><div class="p1c-limit-picker"><button type="button" data-action="night-limit-adjust" data-delta="-1" aria-label="Decrease drink limit">−</button><input id="night-limit" type="number" min="0" max="30" step="1" value="${n.limit}" aria-label="Drink limit"/><button type="button" data-action="night-limit-adjust" data-delta="1" aria-label="Increase drink limit">+</button></div></div>
+          <div class="p1c-limit-row"><label for="night-budget">Spending cap <small>Japanese yen</small></label><div class="p1c-money-input"><span>¥</span><input id="night-budget" type="number" min="0" max="1000000" step="100" value="${n.budget}"/></div></div>
+          <div class="p1c-limit-row"><label for="night-leave">Leave by <small>Chosen time · Japan</small></label><input id="night-leave" class="p1c-time-input" type="time" value="${safe(n.leave)}"/></div>
+          <div class="p1c-home-row"><label for="night-mode">How will you get home?</label><select id="night-mode"><option value="train" ${n.mode==='train'?'selected':''}>Train · verify service yourself</option><option value="taxi" ${n.mode==='taxi'?'selected':''}>Taxi · check availability</option><option value="walk" ${n.mode==='walk'?'selected':''}>Walk · assess route safety</option><option value="other" ${n.mode==='other'?'selected':''}>Other</option></select></div>
+          <div class="p1c-honesty">${icon('info')} Last train, walking time and travel buffer are unknown. The leave-by time is self-entered; this app cannot notify you when it arrives.</div><div class="p1c-night-actions">${action('night-start','Save my limits & start','btn-primary btn-lg')}${action('night-idle','Not tonight','btn-outline')}</div></div>${smallNote}</section>`;
+    }
+    if(n.phase==='drunk') {
+      const signs=[['Cannot be woken','呼びかけに反応しない'],['Vomiting while very drowsy','意識がもうろうとして嘔吐'],['Slow or irregular breathing','呼吸が遅い・不規則'],['Cold, pale or bluish skin','体が冷たい・唇が青い']];
+      return `<section class="p1c-night p1c-urgent">${head('EMERGENCY','Someone may need urgent help.','For suspected alcohol poisoning or serious symptoms, call emergency services without waiting.')}
+        <div class="p1c-urgent-top"><span>URGENT · 急性アルコール中毒の疑い</span><h2>Any of these signs? Call 119.</h2><p>This is a prompt to seek professional help, not a diagnostic test.</p></div>
+        <div class="p1c-red-flags">${signs.map(([en,jp])=>`<div><strong>${en}</strong><span lang="ja">${jp}</span></div>`).join('')}</div>
+        <a class="p1c-urgent-dial" href="tel:119"><strong>${icon('phone','lg')} Call 119 · 救急車</strong><small>Opens the phone dialer; it does not call automatically</small></a>
+        <div class="p1c-honesty">${icon('info')} Stay with the person. If unconscious but breathing normally, place them on their side while awaiting help; follow dispatcher instructions. If not breathing normally, follow emergency CPR guidance. Do not give more alcohol.</div>
+        <div class="p1c-night-actions">${action('night-live','← Back to your night','btn-outline')}</div></section>`;
+    }
+    if(n.phase==='after') {
+      return `<section class="p1c-night">${head('AFTER','Close the loop.','Record what happened; this does not claim you reached home or that a train was available.')}
+        <div class="p1c-night-metrics">${stat('Drinks recorded',`${n.drinks} / ${n.limit}`)}${stat('Spent recorded',yen(n.spent))}${stat('Budget selected',yen(n.budget))}</div>
+        <section class="p1c-night-main"><span class="p1c-overline">AFTER · YOUR OWN NOTES</span><h2>One useful lesson.</h2><label class="p1c-form-label" for="night-note">What worked? What would you change?</label><textarea id="night-note" rows="4" placeholder="A sentence is enough…">${safe(n.note)}</textarea>
+          <div class="p1c-night-actions">${action('night-log','Save this night to Activity Log','btn-primary btn-lg')}${action('night-live','Back to counters','btn-outline')}</div></section>
+        <section class="p1c-note-panel"><span class="p1c-overline">AFTER-ACTION</span><h3>Reflect when you're ready.</h3><p>After saving you can choose a decision point and write a rule. Saved rules are notes, not automatic reminders.</p></section>${smallNote}</section>`;
+    }
+    const overDrink=n.drinks>=n.limit,overBudget=n.spent>=n.budget;
+    const status=n.limit===0?(n.drinks?'Alcohol-free plan was exceeded':'Alcohol-free plan'):overDrink?'Your drink limit is reached':overBudget?'Your spending cap is reached':'Review the plan you made';
+    const timer=nightLayout==='timer';
+    return `<section class="p1c-night">${head('IN PROGRESS','Stay with your plan.','Counters change only when you record something. Your leave time is not a real train timetable.')}
+      <div class="p1c-layout-selector" role="group" aria-label="Night Out display layout">${[['counters','Counters'],['timer','Leave timer']].map(([v,label])=>`<button type="button" data-action="night-layout" data-layout="${v}" aria-pressed="${nightLayout===v}" class="${nightLayout===v?'active':''}">${label}</button>`).join('')}</div>
+      ${timer?`<div class="p1c-timer-panel"><span class="p1c-overline">TIME TO YOUR MANUAL LEAVE TARGET</span><strong data-p1c-countdown>${safe(manualCountdown(n.leaveAt))}</strong><p>Leave by <b>${safe(n.leave)} JST</b> · ${n.leaveAt?'time chosen when the plan began':'older saved plan has no target date'}</p><div class="p1c-timer-sub">${safe(n.drinks)} / ${safe(n.limit)} drinks · ${yen(n.spent)} spent</div></div>`:
+        `<div class="p1c-night-metrics">${stat('Drinks',`${n.drinks} / ${n.limit}`)}${stat('Spent',yen(n.spent))}${stat('Leave by',n.leave+' JST','Self-entered, not last train')}</div>`}
+      <section class="p1c-night-main"><span class="p1c-overline">${overDrink||overBudget?'LIMIT REACHED · MANUAL COUNT':'YOUR CHOICE · LIVE'}</span><h2>${safe(status)}</h2><p>Check whether you still want to continue. Your selected way home is <b>${safe(n.mode)}</b>. Transport and personal safety conditions must be checked separately.</p>
+        <div class="p1c-night-actions">${action('night-after','I’m heading home · Review','btn-primary btn-lg')}${action('night-drunk','Someone needs help','btn-danger btn-lg')}</div>
+        <div class="p1c-record-row"><div><label for="drink-cost">Cost of next drink (¥)</label><input id="drink-cost" type="number" min="0" max="100000" step="50" value="650"/></div>${action('night-plus','+1 drink · Record','btn-outline btn-lg')}${action('night-undo','Undo last','btn-quiet btn-lg')}</div>
+        <p class="p1c-undo-note">Add only a drink you actually had. Undo removes its recorded cost. A limit is a personal reminder, not a safety guarantee.</p></section>${smallNote}</section>`;
   }
-  function logPage() {
-    return pageHeader('YOUR MEMORY','A record that helps you learn.','Only actions you actually record appear here. The sample events from the original design are not presented as real history.')+
-      `<div class="details-grid"><section class="card card-pad"><div class="card-head"><div><div class="card-label">TIMELINE</div><h2 class="card-title">Activity log</h2></div><span class="pill">${data.logs.length} entries</span></div>
-      ${data.logs.length?`<div class="timeline" style="margin-top:14px">${data.logs.map(e=>`<div class="timeline-item"><time>${safe(e.date)}</time><div class="timeline-body"><h3>${safe(e.title)}</h3><p>${safe(e.note)}</p></div></div>`).join('')}</div>`:`<div class="empty-state" style="margin-top:18px">${icon('log','lg')}<h3>Your log starts with you.</h3><p>Complete a departure check, run the incident guide, or finish a night out to create your first entry.</p></div>`}
-      </section><section class="card card-pad"><div class="card-label">NEW ENTRY</div><h2 class="card-title">Record an observation</h2><p class="card-descr">A brief note about a drill, small incident, or improvement idea.</p>
-      <div class="text-field" style="margin-top:18px"><label for="log-title">Title</label><input id="log-title" placeholder="e.g. Emergency bag review"/></div>
-      <div class="text-field" style="margin-top:12px"><label for="log-note">What happened?</label><textarea id="log-note" placeholder="Two or three lines are enough…"></textarea></div>
-      <div class="form-actions">${action('log-create','Add entry','btn-primary')}${action('go','Create a safety rule','btn-outline','data-page="reflection"')}</div></section></div>
-      <div class="section-heading"><h2>Rules you chose to keep</h2><small>${data.rules.length} learned</small></div>
-      ${data.rules.length?`<div class="details-grid">${data.rules.map(r=>`<div class="rule-card"><strong>${safe(r.title)}</strong><p>Trigger: ${safe(r.trigger || 'Review occasionally')}</p><p>Saved ${safe(r.date)}</p></div>`).join('')}</div>`:`<div class="info-band blue">${icon('info')}<span>No rules saved yet. After something goes wrong or a drill reveals a weakness, record one concrete rule that would help next time.</span></div>`}`;
+  function logPhase1C() {
+    const types={manual:'Personal note',departure:'Departure',stranded:'Stranded',incident:'Incident guide',night:'Night Out',reflection:'After-action',legacy:'Older record'};
+    const statuses={recorded:'Recorded manually',confirmed:'User confirmed',resolved:'User confirmed',reviewed:'Guide reviewed only',saved:'Saved · inactive',unknown:'Status not recorded'};
+    return `<section class="p1c-log">${pageHeader('ACTIVITY LOG · 記録','A record you control.','Only records saved in your browser appear below. They are not externally verified or sent to other services.')}
+      <div class="p1c-log-columns"><section class="p1c-log-card"><div class="p1c-log-title"><div><span class="p1c-overline">ACTIVITY · ALL SAVED ENTRIES</span><h2>Timeline</h2></div><span class="p1c-count">${data.logs.length} entries</span></div>
+      ${data.logs.length?`<ol class="p1c-timeline">${data.logs.map(e=>`<li><span class="p1c-event-dot" aria-hidden="true"></span><time>${safe(e.date)}</time><div><span class="p1c-event-type">${safe(types[e.kind]||types.legacy)}</span><h3>${safe(e.title)}</h3><p>${safe(e.note)}</p><span class="p1c-status ${e.status==='unknown'?'unknown':''}">${safe(statuses[e.status]||statuses.unknown)}</span></div></li>`).join('')}</ol>`:`<div class="p1c-empty"><h3>No recorded events yet.</h3><p>Complete a manual departure check, review the incident guide, or add your own observation. No sample history is inserted.</p></div>`}</section>
+      <section class="p1c-log-card p1c-new-entry"><span class="p1c-overline">ADD AN OBSERVATION</span><h2>A small note is enough.</h2><p>Record something real: a drill, a check, or an idea for next time.</p>
+        <div class="text-field"><label for="log-title">Title</label><input id="log-title" maxlength="100" placeholder="e.g. Checked emergency supplies"/></div><div class="text-field"><label for="log-note">What happened?</label><textarea id="log-note" rows="4" maxlength="700" placeholder="A few lines…"></textarea></div>
+        <div class="p1c-night-actions">${action('log-create','Save observation','btn-primary')}${action('go','Write an after-action rule','btn-outline','data-page="reflection"')}</div></section></div>
+      <div class="p1c-log-rules"><div class="p1c-log-title"><div><span class="p1c-overline">RULES · PERSONAL NOTES</span><h2>Rules you've written</h2></div><span class="p1c-count">${data.rules.length} saved</span></div>
+        ${data.rules.length?`<div class="p1c-rules-grid">${data.rules.map(r=>`<article class="p1c-rule"><h3>${safe(r.title)}</h3><p><strong>When to remember:</strong> ${safe(r.trigger||'Not specified')}</p><span class="p1c-status unknown">Saved locally · Does not trigger reminders</span><small>${safe(r.date)}</small></article>`).join('')}</div>`:`<div class="p1c-empty">No saved rules. A rule is a manual note until an actual trigger system is implemented.</div>`}
+        ${action('go','Create a rule','btn-outline','data-page="reflection"')}</div>
+      <p class="p1c-disclaimer">An imported older record may lack a status. “Status not recorded” is intentional; a text title alone is not proof of completion. The 30-day filter from the original prototype is deferred until reliable event timestamps exist.</p></section>`;
   }
-  function reflection() {
-    return pageHeader('AFTER ACTION','Turn an experience into a rule.','The prototype’s learning loop: identify the last decision point, then write a specific action you can take next time.')+
-      `<div class="card card-pad" style="max-width:800px"><div class="card-label">1 · WHAT HAPPENED</div><div class="text-field" style="margin-top:10px"><label for="reflection-event">A short description</label><textarea id="reflection-event" placeholder="What did you notice?"></textarea></div>
-      <div class="sublabel" style="margin-top:24px">2 · LAST DECISION POINT</div><p class="card-descr">What was the last moment you could have changed the outcome?</p><div class="text-field"><label for="reflection-point">The decision point</label><input id="reflection-point" placeholder="e.g. Leaving home without checking the forecast"/></div>
-      <div class="sublabel" style="margin-top:24px">3 · ONE NEW RULE</div><div class="text-field" style="margin-top:9px"><label for="reflection-rule">The rule</label><input id="reflection-rule" placeholder="e.g. Check official advisories before early trips"/></div>
-      <div class="text-field" style="margin-top:12px"><label for="reflection-trigger">When should you think about it?</label><input id="reflection-trigger" placeholder="e.g. Night before a train trip"/></div>
-      <div class="form-actions">${action('save-reflection','Save rule & entry','btn-primary btn-lg')}${action('go','Cancel','btn-outline','data-page="log"')}</div>
-      <p class="block-note">These are personal reminders in the log, not automated notifications.</p></div>`;
+  function reflectionPhase1C() {
+    return `<section class="p1c-reflection">${pageHeader('AFTER-ACTION · 振り返り','One decision, one useful rule.','Use these three short steps. Suggestions are examples you can edit; none is assumed to be your personal history.')}
+      <div class="p1c-reflection-sheet"><div class="p1c-reflection-step"><div class="p1c-step-num">01</div><div><span class="p1c-overline">WHAT HAPPENED</span><h2>Describe it briefly.</h2><label class="p1c-form-label" for="reflection-event">Your observation</label><textarea id="reflection-event" rows="3" maxlength="700" placeholder="What did you notice?"></textarea></div></div>
+        <div class="p1c-reflection-step"><div class="p1c-step-num">02</div><div><span class="p1c-overline">LAST DECISION POINT</span><h2>Where could you have chosen differently?</h2><p>Tap a generic example or type your own. This is not an automated diagnosis.</p><div class="p1c-decision-ideas" role="group" aria-label="Example decision points">${REFLECTION_IDEAS.map((i,index)=>`<button type="button" data-action="reflection-choice" data-index="${index}" aria-pressed="false"><span class="p1c-select-dot" aria-hidden="true"></span><span>${safe(i.point)}</span></button>`).join('')}</div><label class="p1c-form-label" for="reflection-point">Editable decision point</label><input id="reflection-point" maxlength="250" placeholder="Or describe your own decision…"/></div></div>
+        <div class="p1c-reflection-step"><div class="p1c-step-num">03</div><div><span class="p1c-overline">ONE NEW RULE</span><h2>What will you do next time?</h2><label class="p1c-form-label" for="reflection-rule">Editable rule</label><input id="reflection-rule" maxlength="250" placeholder="One specific, doable action"/><label class="p1c-form-label" for="reflection-trigger">When should you remember it?</label><input id="reflection-trigger" maxlength="250" placeholder="e.g. Before heading to the station"/>
+          <div class="p1c-honesty">${icon('info')} This creates an inactive personal rule in your log. No reminder or trigger is scheduled, and the app cannot guarantee it will fire.</div></div></div>
+        <div class="p1c-reflection-actions">${action('save-reflection','Save rule and observation','btn-primary btn-lg')}${action('go','Back to Activity Log','btn-outline','data-page="log"')}</div></div></section>`;
   }
-  function settings() {
-    return pageHeader('PREFERENCES & PRIVACY','Make the guide yours.','Save the details that matter in an emergency. Your data stays in browser storage on this device, not encrypted or synced.')+
-      `<div class="details-grid"><section class="card card-pad"><div class="card-label">YOUR IMPORTANT PLACES</div><h2 class="card-title">Addresses & shelter</h2><p class="card-descr">The home address can appear in the Japanese emergency phone script. Add only information you are comfortable keeping on this device.</p>
-      <div class="text-field" style="margin-top:18px"><label for="home-address">Home address · 自宅住所</label><input id="home-address" value="${safe(data.profile.home)}" placeholder="Ward / city, chōme, banchi…"/></div>
-      <div class="text-field" style="margin-top:12px"><label for="office-address">Office / regular departure point</label><input id="office-address" value="${safe(data.profile.office)}" placeholder="Optional"/></div>
-      <div class="text-field" style="margin-top:12px"><label for="shelter-name">Designated shelter · 指定避難所</label><input id="shelter-name" value="${safe(data.profile.shelter)}" placeholder="Verify using municipal information"/></div>
-      <div class="text-field" style="margin-top:12px"><label for="safe-place">Preferred check-in location</label><input id="safe-place" value="${safe(data.profile.safePlace)}" placeholder="Home, evacuation center, etc."/></div>
-      <div class="form-actions">${action('save-profile','Save these places','btn-primary')}</div></section>
-      <section class="card card-pad"><div class="card-label">PRIVATE CONTACTS</div><h2 class="card-title">People you would call</h2><p class="card-descr">This web app cannot access your phone contacts. Enter numbers manually; SMS actions only open a draft.</p>
-      <div class="contact-form" style="margin-top:19px"><div class="text-field"><label for="contact-name">Name</label><input id="contact-name" placeholder="e.g. Brother"/></div><div class="text-field"><label for="contact-phone">Phone number</label><input id="contact-phone" placeholder="+81 …" inputmode="tel"/></div>${action('add-contact','Add','btn-primary')}</div>
-      <div class="subsection">${data.contacts.length?data.contacts.map((c,k)=>`<div class="contact-row"><div><div class="contact-name">${safe(c.name)}</div><div class="contact-meta">${safe(c.phone)}</div></div>${action('remove-contact',icon('trash','sm')+' Remove','btn-quiet btn-sm',`data-index="${k}"`)}</div>`).join(''):'<p class="block-note">No contacts added.</p>'}</div></section>
-      <section class="card card-pad"><div class="card-label">SOURCE STATUS</div><h2 class="card-title">Connections</h2><ul class="tiny-list">${item('Weather & JMA earthquake feed','Live data not connected','Inactive')}${item('Akatsuki','No synchronization configured','Inactive')}${item('Calendar / geofences / Bluetooth','Manual-only in this version','Inactive')}${item('Local readiness and guide','Your entries stay in this browser','Available')}${item('Offline app shell','Loads after first successful cache',offlineReady?'Cached':'Preparing')}</ul>
-      <div class="info-band blue" style="margin-top:17px">${icon('shield')}<span>Browser storage is not a secure vault. Avoid storing identity-document images or confidential information here, especially on shared devices.</span></div></section>
-      <section class="card card-pad"><div class="card-label">YOUR DATA</div><h2 class="card-title">Back up or start fresh</h2><p class="card-descr">Export your checklist, contacts and logs as a local JSON file. Importing replaces this app’s records in the current browser.</p>
-      <div class="form-actions">${action('export',icon('download','sm')+' Export data','btn-outline')}<label class="btn btn-outline" for="import-json" style="cursor:pointer">Import backup</label><input id="import-json" type="file" accept="application/json,.json" style="display:none" /></div>
-      <div class="separator"></div><div class="form-actions">${action('go','Take setup tour','btn-outline','data-page="onboard"')}${action('erase',icon('trash','sm')+' Erase all local data','btn-danger')}</div><p class="block-note">Erase removes only this app’s browser records. Downloaded backups remain wherever you saved them.</p></section></div>`;
+  function settingsPhase1C() {
+    const group=(id,kicker,title,content)=>`<section class="p1c-setting-group" id="p1c-${id}"><span class="p1c-overline">${kicker}</span><h2>${title}</h2>${content}</section>`;
+    const status=(label,detail,value)=>`<div class="p1c-setting-row"><div><strong>${safe(label)}</strong><small>${safe(detail)}</small></div><span>${safe(value)}</span></div>`;
+    const sources=group('sources','01 · DATA SOURCES','Connections and service status',`<p>None of these remote services is currently connected to this app.</p>${status('JMA / weather / earthquakes','No current official feed or timestamps','Not connected')}${status('Train lines and timetables','No live delays, last-train lookup or confidence model','Not connected')}${status('Akatsuki / calendar','No sharing or automatic reminders','Not connected')}${status('Bluetooth / geofences','No paired tags or background position','Not connected')}${status('Local manual tools','Readiness, incident, log and Night Out','Available offline*')}`);
+    const privacy=group('privacy','02 · PRIVACY','Your records stay on this device',`<p>Addresses, contacts and Night Out logs are kept in browser local storage <strong>without encryption</strong>. This app has no account and does not automatically transmit them.</p>${status('Exact location sharing','The app does not request or track location','Disabled')}${status('Akatsuki consent','No integration to authorize or revoke yet','Not configured')}${status('Contact and calendar sharing','No access or background synchronization','Disabled')}<div class="p1c-honesty">${icon('info')} Avoid saving sensitive identity-document photos or secrets, especially on shared devices. Browser storage can be lost when site data is cleared.</div>`);
+    const thresholds=group('thresholds','03 · THRESHOLDS','Limits and alerts',`<p>Only manual Night Out limits are active. Weather and earthquake thresholds cannot fire without verified sources.</p>${status('Night Out drinks limit',nLimitLabel(),'Manual counter')}${status('Commute alert confidence','Requires a real prediction model','Unavailable')}${status('Quake intensity threshold','Requires a verified JMA feed','Unavailable')}${action('go','Edit Night Out plan','btn-outline','data-page="night"')}`);
+    const offline=group('offline','04 · OFFLINE','Offline readiness',`<p>The guide, manual records and installed app files can work offline after the service worker finishes caching. No shelter-map tiles, identity documents or live feeds are included.</p>${status('App shell',offlineReady?'Service worker ready; verify by going offline':'Cache not confirmed in this session',offlineReady?'Worker ready':'Checking')}${status('Seven-step response guide','Included directly in the application','Included')}${status('Shelter maps / documents','No data downloaded; separate future phase','Not available')}<div class="p1c-honesty">${icon('info')} *Offline availability also depends on browser storage retention. Test an offline launch before relying on it.</div>`);
+    const places=group('details','05 · IMPORTANT DETAILS','Addresses and contacts',`<p>Only enter details you are comfortable storing here. A saved shelter is not independently verified.</p><div class="p1c-settings-two"><div class="p1c-settings-form"><h3>Places</h3><div class="text-field"><label for="home-address">Home address · 自宅住所</label><input id="home-address" value="${safe(data.profile.home)}" placeholder="Ward / city, chōme, banchi…"/></div><div class="text-field"><label for="office-address">Office / regular departure point</label><input id="office-address" value="${safe(data.profile.office)}" placeholder="Optional"/></div><div class="text-field"><label for="shelter-name">Designated shelter · 指定避難所</label><input id="shelter-name" value="${safe(data.profile.shelter)}" placeholder="Verify with your municipality"/></div><div class="text-field"><label for="safe-place">Preferred check-in location</label><input id="safe-place" value="${safe(data.profile.safePlace)}" placeholder="Optional"/></div>${action('save-profile','Save these places','btn-primary')}</div>
+      <div class="p1c-settings-form"><h3>Emergency contacts</h3><p>Enter phone numbers manually; SMS links open drafts only.</p><div class="text-field"><label for="contact-name">Contact name</label><input id="contact-name" placeholder="e.g. Brother"/></div><div class="text-field"><label for="contact-phone">Phone number</label><input id="contact-phone" placeholder="+81 …" inputmode="tel"/></div>${action('add-contact','Add contact','btn-primary')}
+        <div class="p1c-contact-list">${data.contacts.length?data.contacts.map((c,k)=>`<div class="p1c-setting-contact"><div><strong>${safe(c.name)}</strong><small>${safe(c.phone)}</small></div>${action('remove-contact','Remove','btn-quiet btn-sm',`data-index="${k}"`)}</div>`).join(''):'<p>No contacts saved.</p>'}</div></div></div>`);
+    const dataGroup=group('data','06 · DATA MANAGEMENT','Backup and recovery',`<p>Export contains your personal checklist, contacts and logs. Import replaces this app’s saved record <strong>only after confirmation</strong>.</p><div class="p1c-night-actions">${action('export',icon('download','sm')+' Export JSON backup','btn-outline')}<label class="btn btn-outline" for="import-json" style="cursor:pointer">Import backup</label><input id="import-json" type="file" accept="application/json,.json" style="display:none"/></div><div class="p1c-night-actions">${action('go','Review setup tour','btn-outline','data-page="onboard"')}${action('erase',icon('trash','sm')+' Erase this app’s records','btn-danger')}</div><p>Erasure is irreversible without a backup. No other app’s saved data or cache is intentionally deleted.</p>`);
+    function nLimitLabel(){return data.night.limit===0?'Alcohol-free (0)':String(data.night.limit)+' drinks';}
+    return `<section class="p1c-settings">${pageHeader('SETTINGS · 設定','Clarity and control.','Review your connected sources, privacy, manual thresholds, offline status, addresses, and backups.')}
+      <nav class="p1c-setting-jumps" aria-label="Settings sections">${[['sources','Sources'],['privacy','Privacy'],['thresholds','Limits'],['offline','Offline'],['details','Contacts & places'],['data','Backups']].map(([id,label])=>`<a href="#p1c-${id}">${label}</a>`).join('')}</nav>
+      ${sources}${privacy}${thresholds}${offline}${places}${dataGroup}</section>`;
   }
   function onboarding() {
     const index=data.tourStep,t=TOUR[index];
@@ -453,7 +510,7 @@
     </section>`;
   }
   function render() {
-    const pages={watch,readiness,incident,departure,stranded,night,log:logPage,settings,reflection,onboard:onboarding};
+    const pages={watch,readiness,incident,departure,stranded,night:nightPhase1C,log:logPhase1C,settings:settingsPhase1C,reflection:reflectionPhase1C,onboard:onboarding};
     const current=pages[data.page]||watch;
     app.innerHTML=shell(current());
     document.title='Disaster Management · '+({watch:'Watch',readiness:'Readiness',incident:'Emergency guide',departure:'Departure check',stranded:'Stranded options',night:'Night Out',log:'Activity log',settings:'Settings',reflection:'After-action',onboard:'Setup'}[data.page]||'Watch');
@@ -462,8 +519,8 @@
     const location=data.profile.safePlace || data.profile.home || '[your location]';
     return 'I am safe. I am at '+location+'. I will contact you again when possible.';
   }
-  function addLog(title,note) {
-    data.logs.unshift({date:when(),title,note:note||''});
+  function addLog(title,note,kind='manual',status='recorded') {
+    data.logs.unshift({date:when(),title,note:note||'',kind,status});
     data.logs=data.logs.slice(0,150);
   }
   function field(id) {return document.getElementById(id);}
@@ -540,7 +597,7 @@
       const outcomes=Object.values(incident.outcomes).flatMap(entries=>Object.values(entries));
       const cant=outcomes.filter(v=>v==='cant').length,skipped=outcomes.filter(v=>v==='skip').length;
       const note=(field('incident-note')?.value || incident.note || '').trim();
-      addLog('Incident guide reviewed',`Manual guide review only; ${done} items marked done, ${cant} can’t do, ${skipped} skipped. Unfinished items are not complete.${note?' Note: '+note:''}`);
+      addLog('Incident guide reviewed',`Manual guide review only; ${done} items marked done, ${cant} can’t do, ${skipped} skipped. Unfinished items are not complete.${note?' Note: '+note:''}`,'incident','reviewed');
       data.incident=defaults().incident;
       go('log');return toast('Guide review saved locally; no emergency action was sent.');
     }
@@ -549,12 +606,12 @@
     if(name==='departure-finish') {
       const missing=Object.keys(data.departure).filter(k=>!data.departure[k]);
       if(missing.length){data.strandedStep=0;go('stranded');return toast('Review the missing items and try a fallback.');}
-      addLog('Departure check completed','Wallet, pass, phone and keys confirmed with you.');
+      addLog('Departure check completed','Wallet, pass, phone and keys confirmed with you.','departure','confirmed');
       data.departure={wallet:false,pass:false,phone:false,keys:false};
       go('watch');return toast('Departure check saved.');
     }
     if(name==='departure-all'){
-      addLog('Departure check confirmed','You personally confirmed wallet, transit pass, phone and keys.');
+      addLog('Departure check confirmed','You personally confirmed wallet, transit pass, phone and keys.','departure','confirmed');
       data.departure=defaults().departure;
       go('watch');return toast('Your manual confirmation was saved.');
     }
@@ -565,26 +622,44 @@
     if(name==='stranded-select'){data.strandedStep=Math.min(STRANDED.length-1,Math.max(0,index));return update();}
     if(name==='stranded-next'){data.strandedStep=(data.strandedStep+1)%STRANDED.length;return update();}
     if(name==='stranded-resolved'){
-      addLog('Stranded issue resolved','Resolved using: '+STRANDED[data.strandedStep].title);
+      addLog('Stranded issue resolved','User confirmed using: '+STRANDED[data.strandedStep].title,'stranded','resolved');
       data.strandedStep=0;go('log');return toast('Outcome recorded.');
     }
     if(name==='night-pre'){data.night.phase='pre';return update();}
     if(name==='night-idle'){data.night.phase='idle';return update();}
+    if(name==='night-limit-adjust'){
+      const input=field('night-limit');if(!input)return;
+      const current=Number.isFinite(Number(input.value))?Number(input.value):0;
+      input.value=String(Math.max(0,Math.min(30,Math.floor(current)+Number(button.dataset.delta||0))));
+      return;
+    }
+    if(name==='night-layout'){
+      if(['counters','timer'].includes(button.dataset.layout))nightLayout=button.dataset.layout;
+      return render();
+    }
     if(name==='night-start'){
       const n=data.night;
       n.limit=Math.min(30,Math.floor(numericField('night-limit',2)));
       n.budget=Math.min(1000000,Math.floor(numericField('night-budget',3000)));
-      n.leave=field('night-leave')?.value || '23:30';n.mode=field('night-mode')?.value || 'train';
+      const leave=field('night-leave')?.value??'23:30',target=nextManualLeaveTime(leave);
+      if(!target)return toast('Please choose a valid leave-by time.');
+      n.leave=leave;n.leaveAt=target;
+      n.mode=['train','taxi','walk','other'].includes(field('night-mode')?.value)?field('night-mode').value:'train';
       n.drinks=0;n.spent=0;n.note='';n.costHistory=[];n.phase='live';update();return toast('Plan saved locally. Stay safe.');
     }
-    if(name==='night-plus'){const cost=Math.min(100000,Math.floor(numericField('drink-cost',650)));data.night.costHistory=(data.night.costHistory||[]);data.night.costHistory.push(cost);data.night.drinks++;data.night.spent+=cost;return update();}
+    if(name==='night-plus'){
+      if(data.night.drinks>=500)return toast('Local count limit reached. Save this night before adding more.');
+      const cost=Math.min(100000,Math.floor(numericField('drink-cost',650)));
+      data.night.costHistory=(data.night.costHistory||[]);data.night.costHistory.push(cost);
+      data.night.drinks++;data.night.spent+=cost;return update();
+    }
     if(name==='night-undo'){const last=(data.night.costHistory||[]).pop();if(last===undefined)return toast('Nothing to undo.');data.night.drinks=Math.max(0,data.night.drinks-1);data.night.spent=Math.max(0,data.night.spent-last);update();return toast('Last drink and its cost were removed.');}
     if(name==='night-after'){data.night.phase='after';return update();}
     if(name==='night-live'){data.night.phase='live';return update();}
     if(name==='night-drunk'){data.night.phase='drunk';return update();}
     if(name==='night-log'){
       data.night.note=(field('night-note')?.value||'').trim().slice(0,500);
-      addLog('Night out recorded',data.night.drinks+' drinks, '+yen(data.night.spent)+'. '+(data.night.note||''));
+      addLog('Night out recorded',data.night.drinks+' drinks, '+yen(data.night.spent)+'. '+(data.night.note||''),'night','recorded');
       const n=data.night;data.night={...defaults().night,limit:n.limit,budget:n.budget,mode:n.mode,leave:n.leave};
       go('log');return toast('Night added to your log.');
     }
@@ -593,6 +668,16 @@
       if(!title)return toast('Please enter an entry title.');
       addLog(title.slice(0,100),note.slice(0,700));update();return toast('Entry saved in this browser.');
     }
+    if(name==='reflection-choice'){
+      const idea=REFLECTION_IDEAS[index];if(!idea)return;
+      const point=field('reflection-point'),rule=field('reflection-rule');
+      if(point)point.value=idea.point;
+      if(rule&&!rule.value.trim())rule.value=idea.rule;
+      for(const choice of app.querySelectorAll?.('[data-action="reflection-choice"]')||[]){
+        choice.setAttribute('aria-pressed',choice.dataset.index===String(index)?'true':'false');
+      }
+      return toast('Editable example selected. Review before saving.');
+    }
     if(name==='save-reflection'){
       const title=(field('reflection-rule')?.value||'').trim();
       if(!title)return toast('Write a specific rule first.');
@@ -600,7 +685,7 @@
       const point=(field('reflection-point')?.value||'').trim();
       const trigger=(field('reflection-trigger')?.value||'').trim();
       data.rules.unshift({title:title.slice(0,250),trigger:trigger.slice(0,250),date:when()});
-      addLog('After-action rule created',(event?event+'. ':'')+(point?'Decision point: '+point+'. ':'')+'Rule: '+title);
+      addLog('After-action rule created',(event?event+'. ':'')+(point?'Decision point: '+point+'. ':'')+'Rule: '+title,'reflection','saved');
       go('log');return toast('One new rule saved.');
     }
     if(name==='save-profile'){
@@ -661,6 +746,10 @@
   });
   window.addEventListener('online',()=>{netOnline=true;render();});
   window.addEventListener('offline',()=>{netOnline=false;render();});
+  if(typeof window.setInterval==='function')window.setInterval(()=>{
+    const current=app.querySelector('[data-p1c-countdown]');
+    if(current)current.textContent=manualCountdown(data.night.leaveAt);
+  },1000);
   window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();installPrompt=event;});
   render();
   // Browsers also treat loopback HTTP as a secure context for local smoke tests.

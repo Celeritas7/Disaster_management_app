@@ -9,6 +9,7 @@ import vm from 'node:vm';
 const SOURCE_ROOT = process.env.DMA_TEST_ROOT || join(dirname(fileURLToPath(import.meta.url)), '..');
 const SW_SOURCE = readFileSync(join(SOURCE_ROOT, 'service-worker.js'), 'utf8');
 const APP_SOURCE = readFileSync(join(SOURCE_ROOT, 'app.js'), 'utf8');
+const CURRENT_CACHE = SW_SOURCE.match(/const CACHE = '([^']+)'/)?.[1];
 const SCOPE = 'https://celeritas7.github.io/Disaster_management_app/';
 const KEY = 'disaster-management:v1';
 
@@ -138,23 +139,24 @@ function appHarness(initialRaw, {controlled = false, swEnabled = controlled} = {
 test('service worker install reloads all app-shell files from the network', async () => {
   const worker = serviceWorkerHarness();
   await worker.lifecycle('install');
-  assert.equal(worker.preloaded.length,9);
+  assert.equal(worker.preloaded.length,10);
+  assert.ok(worker.preloaded.some(item=>item.url===SCOPE+'phase1c.css'));
   assert.ok(worker.preloaded.every(item => item.url.startsWith(SCOPE) && item.cache === 'reload'));
   assert.equal(worker.skipWaits,1);
 });
 
 test('activation removes only old Disaster Management versioned caches', async () => {
   const worker = serviceWorkerHarness();
-  for (const name of ['disaster-management-app-v4','disaster-management-app-v5','disaster-management-app-images','kg-chart-v1','otherapp-static-v4']) worker.getCache(name);
+  for (const name of ['disaster-management-app-v4','disaster-management-app-v5',CURRENT_CACHE,'disaster-management-app-images','kg-chart-v1','otherapp-static-v4']) worker.getCache(name);
   await worker.lifecycle('activate');
-  assert.deepEqual(worker.deleted,['disaster-management-app-v4']);
-  assert.deepEqual([...worker.cacheNames.keys()],['disaster-management-app-v5','disaster-management-app-images','kg-chart-v1','otherapp-static-v4']);
+  assert.deepEqual(worker.deleted,['disaster-management-app-v4','disaster-management-app-v5']);
+  assert.deepEqual([...worker.cacheNames.keys()],[CURRENT_CACHE,'disaster-management-app-images','kg-chart-v1','otherapp-static-v4']);
   assert.equal(worker.claims,1);
 });
 
 test('an app shell request opens only this app cache and works offline', async () => {
   const worker = serviceWorkerHarness();
-  await worker.getCache('disaster-management-app-v5').put(SCOPE+'app.js',new Response('local app code'));
+  await worker.getCache(CURRENT_CACHE).put(SCOPE+'app.js',new Response('local app code'));
   const result=await worker.fetchURL(SCOPE+'app.js?cachebust=123');
   assert.equal(result.handled,true);
   assert.equal(await result.response.text(),'local app code');
@@ -179,7 +181,7 @@ test('an unrelated cache cannot supply or poison a missing app shell response', 
   worker.setNetwork(async()=>new Response('fetched own app'));
   const result=await worker.fetchURL(SCOPE+'app.js');
   assert.equal(await result.response.text(),'fetched own app');
-  const owned=await worker.getCache('disaster-management-app-v5').match(SCOPE+'app.js');
+  const owned=await worker.getCache(CURRENT_CACHE).match(SCOPE+'app.js');
   assert.equal(await owned.text(),'fetched own app');
 });
 

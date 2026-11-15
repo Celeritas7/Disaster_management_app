@@ -129,7 +129,7 @@ test('Phase 1C has scoped responsive CSS and its own offline cache asset',()=>{
   assert.match(css,/@media\(max-width:420px\)/);
   assert.match(css,/@media\(max-width:680px\)/);
   assert.match(html,/href="\.\/phase1c\.css"/);
-  assert.match(sw,/disaster-management-app-v11/);
+  assert.match(sw,/disaster-management-app-v12/);
   assert.match(sw,/\.\/phase2a\.css/);
   assert.match(sw,/\.\/phase1c\.css/);
   assert.match(sw,/OWNED_CACHE = \/\^disaster-management-app-v/);

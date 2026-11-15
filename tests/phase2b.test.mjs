@@ -174,7 +174,7 @@ test('Phase 2B style remains in the latest owned shell without changing the stor
   assert.match(css,/\.p2b-inventory-item/);
   assert.match(css,/@media\(max-width:360px\)/);
   assert.match(html,/href="\.\/phase2b\.css"/);
-  assert.match(sw,/disaster-management-app-v11/);
+  assert.match(sw,/disaster-management-app-v12/);
   assert.match(sw,/\.\/phase2b\.css/);
   assert.match(js,/disaster-management:v1/);
   assert.doesNotMatch(js,/localStorage\.clear\(/);

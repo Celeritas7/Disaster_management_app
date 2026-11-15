@@ -16,7 +16,8 @@ An offline-capable, privacy-first web app based on the three supplied source fil
 - Manual departure checklist and stranded fallback scenarios
 - Manual Night Out safety commitment, tracking and after-action notes
 - Local activity log and personally created follow-up rules
-- Backup export/import and local reset
+- Optional local follow-up notes and compressed photo evidence in Incident step 7 / Activity Log
+- Plain or password-encrypted JSON backups, preview-before-restore and app-only reset
 - Installable PWA manifest, icons and service-worker cache for the app shell
 
 ## Deliberate limitations
@@ -28,22 +29,25 @@ This is a **functional local-first MVP**, not an emergency-alert service:
 - No push notifications, automatic SMS delivery, phone contact access or cloud backup.
 - Example scenarios are clearly labeled. No confidence numbers or risk scores are invented.
 - Emergency calls are links to the device dialer; SMS actions open a draft only.
+- Bilingual SMS drafts are one recipient at a time; only the user may report having tapped Send. Delivery is always unknown.
+- Optional evidence photos are user-selected and re-encoded locally without the source filename/EXIF; photos are not official damage assessments. Never enter a dangerous place to collect evidence.
 - Browser localStorage can store addresses/contacts, but **it is not encrypted**. Avoid shared devices or storing document scans.
+- Saved or draft evidence photos are included in local JSON backups and erase; an exported unencrypted backup or local recovery copy can still contain sensitive images.
 - The offline cache stores the app shell after a successful online visit; external official alert links still require connectivity.
 
 ## Development
 
-No build step or external dependencies are required. Serve `dist/` over HTTPS (or localhost for development).
+No build step or external dependencies are required. Serve the repository root over HTTPS (or localhost for development).
 
 The application is implemented with plain JavaScript, accessible HTML and CSS. Its state key is `disaster-management:v1`.
 
 ## Publishing on GitHub Pages
 
-The repository includes `.github/workflows/deploy-pages.yml`. On a push to `main`, it uploads `dist/` and deploys it to GitHub Pages.
+The repository includes a safety-check workflow, but not an automatic deployment workflow. A review branch/PR does not change a deployed site. Deployment depends on the GitHub Pages settings.
 
 In the GitHub repository's **Settings → Pages**, select **GitHub Actions** as the build and deployment source. For a project repository, the published URL normally ends with the repository name. All asset URLs are relative to support that subpath.
 
-Publishing source code does not upload or expose your personal readiness records, addresses or contacts, which stay in your own browser's localStorage. If a user opens the site on another device, they start with empty records unless they import a backup.
+Publishing source code does not upload your private records, addresses, contacts or photos, which stay in your own browser's localStorage. Keep exported backups private; another device starts empty unless you explicitly import one.
 
 ## Suggested follow-up phases
 

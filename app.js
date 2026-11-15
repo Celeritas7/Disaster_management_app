@@ -123,6 +123,20 @@
   const SMS_STATUSES = ['unsent','draft-opened','user-confirmed-sent'];
   const CONTACT_ID = /^c-[1-9]\d{0,8}$/;
   const emptyCommunication = () => ({template:'checkin',language:'both',currentLocation:'',selected:[],entries:{},pendingId:''});
+  // Conservative limits keep optional photos within the existing 2 MB v1
+  // backup/import contract. JPEGs are re-encoded, stripping source EXIF/GPS.
+  const EVIDENCE_MAX_RECORDS = 12;
+  const EVIDENCE_MAX_PHOTOS = 6;
+  const EVIDENCE_MAX_PHOTO_CHARS = 120_000;
+  const EVIDENCE_MAX_TOTAL_CHARS = 650_000;
+  const EVIDENCE_MAX_FILE_BYTES = 8_000_000;
+  const emptyEvidence = () => ({draft:{note:'',photos:[]},entries:[],nextId:1,nextPhotoId:1});
+  const validEvidencePhoto = x => !!x && typeof x==='object' && !Array.isArray(x)
+    && /^p-[1-9]\d{0,8}$/.test(x.id)
+    && typeof x.image==='string' && x.image.length<=EVIDENCE_MAX_PHOTO_CHARS
+    && /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(x.image)
+    && Number.isInteger(x.width) && x.width>0 && x.width<=960
+    && Number.isInteger(x.height) && x.height>0 && x.height<=960;
   const TOUR = [
     {jp:'はじめに',title:'A quiet watcher for a loud country.',body:'Disaster Management helps you prepare and walks you through difficult moments. Its first version works manually, even without a live feed.',points:[['Guided seven-step earthquake response','Offline guide'],['Checklist, contacts and safety notes','Saved here'],['Weather and quake monitoring','Not connected']]},
     {jp:'持ち出し',title:'Make your emergency kit visible.',body:'A readiness score is only useful when it reflects things you have genuinely checked.',points:[['Mark each item when verified','No assumptions'],['Prepare water, food and a go-bag','Your checklist'],['Remember to review dates','Manual']]},
@@ -203,6 +217,7 @@
     return {version:VERSION,page:'watch',tourStep:0,tourDone:false,profile:{home:'',office:'',shelter:'',safePlace:'',station:'',shelterSource:'',placeChecks:{}},
       checks:{},readiness:{items:{},custom:[],nextCustomId:1,embassy:{status:'unknown',updatedAt:''}},
       contacts:[],nextContactId:1,incident:{active:false,step:1,done:{},contacted:[],note:'',oneStep:false,cursor:{},outcomes:{},stepOutcomes:{},paused:false,lowPower:false,communication:emptyCommunication()},
+      evidence:emptyEvidence(),
       departure:{wallet:false,pass:false,phone:false,keys:false},strandedStep:0,
       night:{phase:'idle',limit:2,budget:3000,leave:'23:30',leaveAt:null,mode:'train',drinks:0,spent:0,note:'',costHistory:[]},
       scenario:false,logs:[],rules:[]};
@@ -272,6 +287,17 @@
     d.incident.oneStep=!!incident.oneStep;
     d.incident.paused=!!incident.paused && d.incident.active;
     d.incident.lowPower=!!incident.lowPower;
+    // Optional v1 follow-up records never disappear when the incident guide
+    // resets. They remain in the same local/unencrypted export and restore.
+    const evidence=obj(raw.evidence),draft=obj(evidence.draft);
+    d.evidence.draft.note=str(draft.note,1200);
+    d.evidence.draft.photos=(Array.isArray(draft.photos)?draft.photos:[]).map(p=>({id:p.id,image:p.image,width:p.width,height:p.height}));
+    d.evidence.entries=(Array.isArray(evidence.entries)?evidence.entries:[]).map(e=>({
+      id:e.id,at:e.at,note:str(e.note,1200),photos:e.photos.map(p=>({id:p.id,image:p.image,width:p.width,height:p.height}))
+    }));
+    d.evidence.nextId=Math.max(1,num(evidence.nextId,1_000_000_000,1),...d.evidence.entries.map(e=>Number(e.id.slice(2))+1));
+    d.evidence.nextPhotoId=Math.max(1,num(evidence.nextPhotoId,1_000_000_000,1),
+      ...[d.evidence.draft,...d.evidence.entries].flatMap(e=>e.photos).map(p=>Number(p.id.slice(2))+1));
     // Phase 3B adds optional v1 fields. Missing communication records are
     // always UNSENT, including old `incident.contacted` (a separate manual mark).
     const communication=obj(incident.communication),state=d.incident.communication;
@@ -348,7 +374,32 @@
     if(!isObject(record.profile) || !isObject(record.checks) || !isObject(record.incident)
        || !isObject(record.departure) || !isObject(record.night)
        || !Array.isArray(record.contacts) || !Array.isArray(record.logs) || !Array.isArray(record.rules))return null;
+    // Never silently truncate/destroy photo evidence from an incompatible or
+    // damaged backup. Preserve original bytes in quarantine instead.
+    if(record.evidence!==undefined && !validEvidenceRecord(record.evidence))return null;
     return record;
+  }
+  function validEvidenceRecord(evidence) {
+    if(!evidence||typeof evidence!=='object'||Array.isArray(evidence)
+      ||!evidence.draft||typeof evidence.draft.note!=='string'||!Array.isArray(evidence.draft.photos)
+      ||!Array.isArray(evidence.entries)||evidence.entries.length>EVIDENCE_MAX_RECORDS
+      ||!Number.isInteger(evidence.nextId)||evidence.nextId<1||evidence.nextId>999_999_999
+      ||!Number.isInteger(evidence.nextPhotoId)||evidence.nextPhotoId<1||evidence.nextPhotoId>999_999_999)return false;
+    const entries=[evidence.draft,...evidence.entries],seenEntries=new Set(),seenPhotos=new Set();
+    let totalPhotos=0,totalChars=0;
+    for(const entry of entries){
+      if(!entry||typeof entry!=='object'||typeof entry.note!=='string'||entry.note.length>1200||!Array.isArray(entry.photos))return false;
+      if(entry!==evidence.draft){
+        if(!/^e-[1-9]\d{0,8}$/.test(entry.id)||seenEntries.has(entry.id)||Number(entry.id.slice(2))>=evidence.nextId
+          ||typeof entry.at!=='string'||entry.at.length>35||Number.isNaN(Date.parse(entry.at)))return false;
+        seenEntries.add(entry.id);
+      }
+      for(const photo of entry.photos){
+        if(!validEvidencePhoto(photo)||seenPhotos.has(photo.id)||Number(photo.id.slice(2))>=evidence.nextPhotoId)return false;
+        seenPhotos.add(photo.id);totalPhotos++;totalChars+=photo.image.length;
+      }
+    }
+    return totalPhotos<=EVIDENCE_MAX_PHOTOS&&totalChars<=EVIDENCE_MAX_TOTAL_CHARS;
   }
   function load() {
     let saved;
@@ -374,6 +425,7 @@
   let contactEditIndex = null; // UI-only; never confuse editing with a saved contact.
   let inventoryOpenId = null; // UI-only; retain the detail panel being edited.
   let pendingImport = null; // Preview only; no live record is changed until Apply.
+  let evidenceUploadBusy = false;
   const permissionState = {location:'Not checked',notification:'Not checked',storage:'Not checked',locationTest:'Not tested'};
   const app = document.getElementById('app');
   const readyCount = () => Math.round(100*CHECKS.reduce((n,c)=>n+(readinessStatus(c).ready?c.pts:0),0)/CHECKS.reduce((n,c)=>n+c.pts,0));
@@ -642,6 +694,7 @@
         ${step.n===2?`<div class="info-band amber" style="margin-top:17px">${icon('alert')}<div>If shaking starts again, drop, cover your head, and hold on. Avoid operating gas equipment if you suspect a leak.</div></div>`:''}
         ${step.n===6?`<div class="link-list" style="margin-top:18px">${link('https://www.jma.go.jp/bosai/','JMA official updates')}${link('https://www.nhk.or.jp/kishou-saigai/','NHK disaster info')}</div>`:''}
         ${step.n===7?`<div class="text-field" style="margin-top:20px"><label for="incident-note">What happened / what to improve</label><textarea id="incident-note" data-save-field="incident.note" placeholder="For your private incident log…">${safe(i.note)}</textarea></div>`:''}
+        ${step.n===7?evidencePanel(false):''}
       </section>`;
     }
     if(step.n===3) return communicationPanel();
@@ -723,6 +776,27 @@
         <div class="p1c-record-row"><div><label for="drink-cost">Cost of next drink (¥)</label><input id="drink-cost" type="number" min="0" max="100000" step="50" value="650"/></div>${action('night-plus','+1 drink · Record','btn-outline btn-lg')}${action('night-undo','Undo last','btn-quiet btn-lg')}</div>
         <p class="p1c-undo-note">Add only a drink you actually had. Undo removes its recorded cost. A limit is a personal reminder, not a safety guarantee.</p></section>${smallNote}</section>`;
   }
+  function evidencePanel(inLog) {
+    const e=data.evidence,draft=e.draft;
+    const photoCount=[draft,...e.entries].reduce((n,item)=>n+item.photos.length,0);
+    const gallery=(photos,editable)=>photos.length?`<div class="p3c-gallery" aria-label="User-provided photo thumbnails">${photos.map((photo,k)=>`<figure><img src="${photo.image}" alt="User-selected photo ${k+1}; not an official assessment" loading="lazy"/><figcaption>Photo ${k+1} · ${photo.width}×${photo.height}${editable?action('evidence-remove-photo','Remove','btn-quiet btn-sm',`data-id="${photo.id}" aria-label="Remove photo ${k+1}"`):''}</figcaption></figure>`).join('')}</div>`:'';
+    return `<section class="p3c-evidence" aria-label="Local follow-up evidence">
+      <div class="p3c-evidence-heading"><div><span class="p1c-overline">PHASE 3C · OPTIONAL · 記録</span><h2>Private follow-up evidence</h2></div><span class="p3c-local">LOCAL ONLY · UNVERIFIED</span></div>
+      <div class="p3c-evidence-warning" role="note">${icon('alert','sm')}<p><strong>Safety first · 安全第一.</strong> Never return to an unsafe area to collect evidence. Photos and notes are your own observations, <strong>not an official damage assessment</strong>. For danger or injury, use emergency services, not this form.<span lang="ja">危険な場所に戻って撮影しないでください。写真は公的な被害判定ではありません。</span></p></div>
+      <p>Only add what you personally know. No GPS, address, event severity or damage status is inferred. Choose an existing photo only when safe; the app never starts a camera or uploads a photo.</p>
+      <div class="p3c-draft"><div class="p3c-draft-title"><strong>${draft.photos.length||draft.note.trim()?'Draft saved locally':'New private draft'}</strong><small>Draft survives leaving this page or an offline reload.</small></div>
+        <label class="p3c-label" for="p3c-evidence-note">My observation · 私の記録 · optional</label><textarea id="p3c-evidence-note" maxlength="1200" rows="3" placeholder="What you observed, when it was safe…">${safe(draft.note)}</textarea>
+        <label class="p3c-photo-input" for="p3c-photo-file"><span>${icon('plus','sm')} Add selected photo(s) · 写真を追加 · optional</span><input id="p3c-photo-file" type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif,image/gif,image/bmp" multiple aria-describedby="p3c-photo-help"/></label>
+        <p id="p3c-photo-help" class="p3c-help">At most ${EVIDENCE_MAX_PHOTOS} small photos across all records. Each is compressed to JPEG (up to 960 px); the original filename and EXIF/GPS are not kept. Avoid faces, IDs, and sensitive addresses. The image itself may still reveal private details.</p>
+        ${gallery(draft.photos,true)}
+        <div class="p3c-draft-actions">${action('evidence-save','Save follow-up record · 記録を保存','btn-primary',`${!draft.note.trim()&&!draft.photos.length?'disabled':''}`)}${action('evidence-clear','Discard this draft','btn-outline',`${!draft.note.trim()&&!draft.photos.length?'disabled':''}`)}</div>
+        <p class="p3c-storage-note">All photos and notes are saved in <code>disaster-management:v1</code> as <strong>unencrypted local browser data</strong>. They are included in JSON and password-encrypted backups; browser/site data erasure loses them. Export a private backup if important. No cloud sync or automatic sharing.</p>
+      </div>
+      <div class="p3c-records-heading"><h3>Saved observations</h3><small>${e.entries.length} records · ${photoCount} photos including drafts · max ${EVIDENCE_MAX_RECORDS} records</small></div>
+      ${e.entries.length?`<div class="p3c-records">${e.entries.map(record=>`<article class="p3c-record"><div class="p3c-record-header"><div><strong>Self-reported observation</strong><time datetime="${safe(record.at)}">${safe(new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Tokyo',day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(record.at)))}</time></div>${action('evidence-delete','Delete record','btn-outline btn-sm',`data-id="${safe(record.id)}"`)}</div>${record.note?`<p class="p3c-record-note">${safe(record.note)}</p>`:''}${gallery(record.photos,false)}<small>Personal record · not official, not verified or submitted</small></article>`).join('')}</div>`:`<p class="p3c-empty">No evidence records yet. A draft is separate from a completed record.</p>`}
+      ${!inLog?`<p class="p3c-navigation">Earlier observations remain accessible from Activity Log after you finish the incident guide. ${action('go','View activity history','btn-quiet btn-sm','data-page="log"')}</p>`:''}
+    </section>`;
+  }
   function logPhase1C() {
     const types={manual:'Personal note',departure:'Departure',stranded:'Stranded',incident:'Incident guide',night:'Night Out',reflection:'After-action',legacy:'Older record'};
     const statuses={recorded:'Recorded manually',confirmed:'User confirmed',resolved:'User confirmed',reviewed:'Guide reviewed only',saved:'Saved · inactive',unknown:'Status not recorded'};
@@ -732,6 +806,7 @@
       <section class="p1c-log-card p1c-new-entry"><span class="p1c-overline">ADD AN OBSERVATION</span><h2>A small note is enough.</h2><p>Record something real: a drill, a check, or an idea for next time.</p>
         <div class="text-field"><label for="log-title">Title</label><input id="log-title" maxlength="100" placeholder="e.g. Checked emergency supplies"/></div><div class="text-field"><label for="log-note">What happened?</label><textarea id="log-note" rows="4" maxlength="700" placeholder="A few lines…"></textarea></div>
         <div class="p1c-night-actions">${action('log-create','Save observation','btn-primary')}${action('go','Write an after-action rule','btn-outline','data-page="reflection"')}</div></section></div>
+      ${evidencePanel(true)}
       <div class="p1c-log-rules"><div class="p1c-log-title"><div><span class="p1c-overline">RULES · PERSONAL NOTES</span><h2>Rules you've written</h2></div><span class="p1c-count">${data.rules.length} saved</span></div>
         ${data.rules.length?`<div class="p1c-rules-grid">${data.rules.map(r=>`<article class="p1c-rule"><h3>${safe(r.title)}</h3><p><strong>When to remember:</strong> ${safe(r.trigger||'Not specified')}</p><span class="p1c-status unknown">Saved locally · Does not trigger reminders</span><small>${safe(r.date)}</small></article>`).join('')}</div>`:`<div class="p1c-empty">No saved rules. A rule is a manual note until an actual trigger system is implemented.</div>`}
         ${action('go','Create a rule','btn-outline','data-page="reflection"')}</div>
@@ -797,7 +872,8 @@
     try {return localStorage.getItem(PREIMPORT_KEY)!==null;} catch {return false;}
   }
   function importCounts(record) {
-    return `${record.contacts.length} contacts · ${record.logs.length} log entries · ${record.rules.length} rules · ${record.readiness.custom.length} extra kit items · ${CHECKS.filter(c=>record.checks[c.id]).length} checked essentials`;
+    const photos=[record.evidence.draft,...record.evidence.entries].reduce((sum,e)=>sum+e.photos.length,0);
+    return `${record.contacts.length} contacts · ${record.logs.length} log entries · ${record.rules.length} rules · ${record.evidence.entries.length} evidence records + ${photos} photos (including drafts) · ${record.readiness.custom.length} extra kit items · ${CHECKS.filter(c=>record.checks[c.id]).length} checked essentials`;
   }
   function importPreview() {
     if(!pendingImport)return '';
@@ -812,11 +888,11 @@
     const group=(id,kicker,title,content)=>`<section class="p1c-setting-group" id="p1c-${id}"><span class="p1c-overline">${kicker}</span><h2>${title}</h2>${content}</section>`;
     const status=(label,detail,value,permissionKey='')=>`<div class="p1c-setting-row"><div><strong>${safe(label)}</strong><small>${safe(detail)}</small></div><span ${permissionKey?`data-permission-status="${permissionKey}"`:''}>${safe(value)}</span></div>`;
     const sources=group('sources','01 · DATA SOURCES','Connections and service status',`<p>None of these remote services is currently connected to this app.</p>${status('JMA / weather / earthquakes','No current official feed or timestamps','Not connected')}${status('Train lines and timetables','No live delays, last-train lookup or confidence model','Not connected')}${status('Akatsuki / calendar','No sharing or automatic reminders','Not connected')}${status('Bluetooth / geofences','No paired tags or background position','Not connected')}${status('Local manual tools','Readiness, incident, log and Night Out','Available offline*')}`);
-    const privacy=group('privacy','02 · PRIVACY','Permission and privacy controls',`<p>Addresses, contacts and Night Out logs are kept in browser local storage <strong>without encryption</strong>. No account, cloud synchronization or background tracking is connected.</p><div class="p2c-permission-status">${status('Browser location permission','Status only; checking does not request access',permissionState.location,'location')}${status('Notification permission','Status only; notifications are not implemented',permissionState.notification,'notification')}${status('Offline storage protection','Browser may still clear data when you clear site data',permissionState.storage,'storage')}<div class="p2c-location-result" data-permission-status="locationTest" data-permission-prefix="One-time location test: " role="status">One-time location test: ${safe(permissionState.locationTest)}</div></div><div class="p2c-privacy-actions">${action('check-browser-permissions','Check browser status','btn-outline')}${action('test-location-once','Test location once','btn-outline')}${action('request-persistent-storage','Request protected storage','btn-outline')}</div><p class="p2c-footnote">Location test may show a browser prompt; its coordinates are immediately discarded. Manual address and shelter entry always work. If you grant location access, revoke it later through your browser’s site permissions. Protected storage is best-effort and is not a substitute for exporting a backup.</p>${status('Akatsuki / calendar / Bluetooth','No integration, authorization or revocation yet','Not connected')}${status('Contacts and personal documents','Never uploaded automatically','Local only')}<div class="p1c-honesty">${icon('info')} Avoid saving identity-document photos or secrets, especially on shared devices. Browser history, site-data clearing and device loss can remove local records.</div>`);
+    const privacy=group('privacy','02 · PRIVACY','Permission and privacy controls',`<p>Addresses, contacts, optional follow-up photos and logs are kept in browser local storage <strong>without encryption</strong>. No account, cloud synchronization or background tracking is connected. Selected photos are re-encoded to small JPEGs without the original EXIF/GPS or filename, but their visible contents can still reveal identity or location.</p><div class="p2c-permission-status">${status('Browser location permission','Status only; checking does not request access',permissionState.location,'location')}${status('Notification permission','Status only; notifications are not implemented',permissionState.notification,'notification')}${status('Offline storage protection','Browser may still clear data when you clear site data',permissionState.storage,'storage')}<div class="p2c-location-result" data-permission-status="locationTest" data-permission-prefix="One-time location test: " role="status">One-time location test: ${safe(permissionState.locationTest)}</div></div><div class="p2c-privacy-actions">${action('check-browser-permissions','Check browser status','btn-outline')}${action('test-location-once','Test location once','btn-outline')}${action('request-persistent-storage','Request protected storage','btn-outline')}</div><p class="p2c-footnote">Location test may show a browser prompt; its coordinates are immediately discarded. Manual address and shelter entry always work. If you grant location access, revoke it later through your browser’s site permissions. Protected storage is best-effort and is not a substitute for exporting a backup.</p>${status('Akatsuki / calendar / Bluetooth','No integration, authorization or revocation yet','Not connected')}${status('Contacts and personal documents','Never uploaded automatically','Local only')}<div class="p1c-honesty">${icon('info')} Avoid saving identity-document photos, faces, IDs or secrets, especially on shared devices. Browser site-data clearing and device loss can remove local records.</div>`);
     const thresholds=group('thresholds','03 · THRESHOLDS','Limits and alerts',`<p>Only manual Night Out limits are active. Weather and earthquake thresholds cannot fire without verified sources.</p>${status('Night Out drinks limit',nLimitLabel(),'Manual counter')}${status('Commute alert confidence','Requires a real prediction model','Unavailable')}${status('Quake intensity threshold','Requires a verified JMA feed','Unavailable')}${action('go','Edit Night Out plan','btn-outline','data-page="night"')}`);
     const offline=group('offline','04 · OFFLINE','Offline readiness',`<p>The guide, manual records and installed app files can work offline after the service worker finishes caching. No shelter-map tiles, identity documents or live feeds are included.</p>${status('App shell',offlineReady?'Service worker ready; verify by going offline':'Cache not confirmed in this session',offlineReady?'Worker ready':'Checking')}${status('Seven-step response guide','Included directly in the application','Included')}${status('Shelter maps / documents','No data downloaded; separate future phase','Not available')}<div class="p1c-honesty">${icon('info')} *Offline availability also depends on browser storage retention. Test an offline launch before relying on it.</div>`);
     const places=settingsPlacesPhase2A(group);
-    const dataGroup=group('data','06 · DATA MANAGEMENT','Backup, privacy and recovery',`<p>Backups can include your home address, phone numbers and personal logs. <strong>Unencrypted JSON is readable by anyone with the file.</strong> Both formats can be imported after a preview, without any network service.</p><div class="p2c-backup-controls"><div class="p2c-export-card"><strong>Standard JSON · no password</strong><small>Compatible with older app backups. Store it privately.</small>${action('export',icon('download','sm')+' Export JSON backup','btn-outline')}</div><div class="p2c-export-card"><strong>Encrypted JSON · optional</strong><small>AES-GCM encryption with a password you choose. Password is never saved or sent.</small><div class="text-field"><label for="p2c-export-password">Backup password (12–256 characters)</label><input id="p2c-export-password" type="password" autocomplete="new-password" minlength="12" maxlength="256" /></div><div class="text-field"><label for="p2c-export-confirm">Confirm password</label><input id="p2c-export-confirm" type="password" autocomplete="new-password" minlength="12" maxlength="256" /></div>${action('export-encrypted',icon('download','sm')+' Export encrypted backup','btn-primary')}<small>Keep this password safely: there is no recovery option.</small></div></div><div class="p2c-import-controls"><label class="btn btn-outline" for="import-json" style="cursor:pointer">Choose backup to preview</label><input id="import-json" type="file" accept="application/json,.json" style="display:none"/>${hasPreimportSnapshot()?`${action('preview-previous','Review previous local copy','btn-outline')}${action('download-previous','Download previous copy','btn-outline')}`:''}</div>${importPreview()}<div class="p1c-night-actions">${action('go','Review setup tour','btn-outline','data-page="onboard"')}${action('erase',icon('trash','sm')+' Erase this app’s records','btn-danger')}</div><p class="p2c-footnote">The previous-copy slot is a second, <strong>unencrypted</strong> copy in this same browser, retained until the next successful restore or erasure. It is not a remote backup. Erasing removes only this app’s record and recovery copy, not unrelated app storage.</p><div class="p2c-sync-status"><strong>Account / secure sync · design stage only</strong><p>No account, server, Akatsuki contract or automatic upload is active. Future sync needs explicit per-data-category consent, verified authentication, encryption and conflict recovery.</p><span class="p2c-unconnected">Not connected</span></div>`);
+    const dataGroup=group('data','06 · DATA MANAGEMENT','Backup, privacy and recovery',`<p>Backups include any saved or draft evidence photos, plus your addresses, contacts and logs. <strong>Unencrypted JSON is readable by anyone with the file.</strong> Both formats can be imported after a preview, without any network service.</p><div class="p2c-backup-controls"><div class="p2c-export-card"><strong>Standard JSON · no password</strong><small>Compatible with older app backups. Store it privately.</small>${action('export',icon('download','sm')+' Export JSON backup','btn-outline')}</div><div class="p2c-export-card"><strong>Encrypted JSON · optional</strong><small>AES-GCM encryption with a password you choose. Password is never saved or sent.</small><div class="text-field"><label for="p2c-export-password">Backup password (12–256 characters)</label><input id="p2c-export-password" type="password" autocomplete="new-password" minlength="12" maxlength="256" /></div><div class="text-field"><label for="p2c-export-confirm">Confirm password</label><input id="p2c-export-confirm" type="password" autocomplete="new-password" minlength="12" maxlength="256" /></div>${action('export-encrypted',icon('download','sm')+' Export encrypted backup','btn-primary')}<small>Keep this password safely: there is no recovery option.</small></div></div><div class="p2c-import-controls"><label class="btn btn-outline" for="import-json" style="cursor:pointer">Choose backup to preview</label><input id="import-json" type="file" accept="application/json,.json" style="display:none"/>${hasPreimportSnapshot()?`${action('preview-previous','Review previous local copy','btn-outline')}${action('download-previous','Download previous copy','btn-outline')}`:''}</div>${importPreview()}<div class="p1c-night-actions">${action('go','Review setup tour','btn-outline','data-page="onboard"')}${action('erase',icon('trash','sm')+' Erase this app’s records','btn-danger')}</div><p class="p2c-footnote">The previous-copy slot is a second, <strong>unencrypted</strong> copy in this same browser, retained until the next successful restore or erasure. It is not a remote backup. Erasing removes only this app’s record and recovery copy, not unrelated app storage.</p><div class="p2c-sync-status"><strong>Account / secure sync · design stage only</strong><p>No account, server, Akatsuki contract or automatic upload is active. Future sync needs explicit per-data-category consent, verified authentication, encryption and conflict recovery.</p><span class="p2c-unconnected">Not connected</span></div>`);
     function nLimitLabel(){return data.night.limit===0?'Alcohol-free (0)':String(data.night.limit)+' drinks';}
     return `<section class="p1c-settings">${pageHeader('SETTINGS · 設定','Clarity and control.','Review your connected sources, privacy, manual thresholds, offline status, addresses, and backups.')}
       <nav class="p1c-setting-jumps" aria-label="Settings sections">${[['sources','Sources'],['privacy','Privacy'],['thresholds','Limits'],['offline','Offline'],['details','Contacts & places'],['data','Backups']].map(([id,label])=>`<a href="#p1c-${id}">${label}</a>`).join('')}</nav>
@@ -894,6 +970,100 @@
   function addLog(title,note,kind='manual',status='recorded') {
     data.logs.unshift({date:when(),title,note:note||'',kind,status});
     data.logs=data.logs.slice(0,150);
+  }
+  function evidencePhotoCount() {
+    return [data.evidence.draft,...data.evidence.entries].reduce((sum,e)=>sum+e.photos.length,0);
+  }
+  function evidencePhotoChars() {
+    return [data.evidence.draft,...data.evidence.entries].reduce((sum,e)=>sum+e.photos.reduce((n,p)=>n+p.image.length,0),0);
+  }
+  async function reencodeEvidencePhoto(file) {
+    // SVG/vector sources could fetch remote resources while decoding. Accept
+    // only familiar raster formats; re-encoding never stores the original.
+    if(!file||!/^image\/(?:jpeg|png|webp|avif|heic|heif|gif|bmp)$/.test(file.type)
+      ||file.size>EVIDENCE_MAX_FILE_BYTES||file.size===0)
+      throw new Error('Select a supported image under 8 MB. No photo was saved.');
+    const url=URL.createObjectURL(file);
+    try {
+      const image=await new Promise((resolve,reject)=>{
+        const element=new Image();
+        element.onload=()=>resolve(element);
+        element.onerror=()=>reject(new Error('Image cannot be read by this browser. No photo was saved.'));
+        element.src=url;
+      });
+      if(!image.naturalWidth||!image.naturalHeight||image.naturalWidth*image.naturalHeight>20_000_000)
+        throw new Error('Photo dimensions are too large. No photo was saved.');
+      const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
+      if(!ctx)throw new Error('Image compression is unavailable on this browser.');
+      for(const edge of [960,760,600,480,320]){
+        const scale=Math.min(1,edge/Math.max(image.naturalWidth,image.naturalHeight));
+        canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));
+        canvas.height=Math.max(1,Math.round(image.naturalHeight*scale));
+        ctx.drawImage(image,0,0,canvas.width,canvas.height);
+        for(const quality of [0.72,0.55,0.4]){
+          const encoded=canvas.toDataURL('image/jpeg',quality);
+          if(encoded.length<=EVIDENCE_MAX_PHOTO_CHARS && /^data:image\/jpeg;base64,/.test(encoded))
+            return {image:encoded,width:canvas.width,height:canvas.height};
+        }
+      }
+      throw new Error('Could not make this photo small enough for the offline backup. No photo was saved.');
+    } finally {URL.revokeObjectURL(url);}
+  }
+  async function addEvidencePhotos(files) {
+    if(evidenceUploadBusy)throw new Error('Wait for the earlier photo compression to finish.');
+    evidenceUploadBusy=true;
+    try {
+    const choices=Array.from(files||[]);
+    if(!choices.length)return;
+    if(evidencePhotoCount()+choices.length>EVIDENCE_MAX_PHOTOS)
+      throw new Error('Photo limit reached: at most six across saved records and draft. Delete an older record first.');
+    if(data.evidence.nextPhotoId+choices.length>999_999_999)
+      throw new Error('Photo identifiers exhausted. Export your backup before proceeding.');
+    const encoded=[];
+    for(const file of choices)encoded.push(await reencodeEvidencePhoto(file));
+    const total=encoded.reduce((n,p)=>n+p.image.length,0);
+    if(evidencePhotoChars()+total>EVIDENCE_MAX_TOTAL_CHARS)
+      throw new Error('Photo storage limit reached. Remove an older photo or record first.');
+    const previous=JSON.stringify(data.evidence);
+    for(const photo of encoded)data.evidence.draft.photos.push({id:'p-'+data.evidence.nextPhotoId++,...photo});
+    if(!save()){
+      data.evidence=JSON.parse(previous);
+      render();
+      throw new Error('Local storage could not save the photo. The existing records are unchanged.');
+    }
+    render();toast(encoded.length+' compressed photo(s) saved in the private draft. No upload occurred.');
+    } finally {evidenceUploadBusy=false;}
+  }
+  function editEvidence(action,id) {
+    const before=JSON.stringify(data.evidence),oldLogs=data.logs.slice();
+    const draft=data.evidence.draft;
+    if(action==='evidence-save'){
+      const note=draft.note.trim();
+      if(!note&&!draft.photos.length)return toast('Add an observation or select a photo first.');
+      if(data.evidence.entries.length>=EVIDENCE_MAX_RECORDS)return toast('The 12-record limit is reached. Export a backup before deleting a record.');
+      if(data.evidence.nextId>999_999_998)return toast('Evidence record identifiers exhausted. Export your backup before proceeding.');
+      data.evidence.entries.unshift({id:'e-'+data.evidence.nextId++,at:new Date().toISOString(),note,photos:draft.photos});
+      data.evidence.draft={note:'',photos:[]};
+      addLog('Private follow-up evidence saved',`User saved a local follow-up record (${data.evidence.entries[0].photos.length} photo(s)); contents unverified, not an official assessment or submission.`,'incident','recorded');
+    }else if(action==='evidence-clear'){
+      if(!draft.note&&!draft.photos.length)return;
+      if(!confirm('Discard your unsent draft notes and photo(s) from this browser?'))return;
+      data.evidence.draft={note:'',photos:[]};
+    }else if(action==='evidence-remove-photo'){
+      if(!draft.photos.some(p=>p.id===id))return;
+      draft.photos=draft.photos.filter(p=>p.id!==id);
+    }else if(action==='evidence-delete'){
+      const found=data.evidence.entries.find(e=>e.id===id);
+      if(!found)return;
+      if(!confirm('Permanently delete this local evidence record, including its photos? Previously exported backups may still contain it.'))return;
+      data.evidence.entries=data.evidence.entries.filter(e=>e.id!==id);
+      addLog('Private evidence deleted','User removed a local follow-up record. Any previously exported backups are unchanged.','incident','recorded');
+    }else return;
+    if(!save()){
+      data.evidence=JSON.parse(before);data.logs=oldLogs;render();
+      return toast('Could not save this change. Existing records remain unchanged.');
+    }
+    render();toast(action==='evidence-save'?'Follow-up record saved privately; nothing was submitted.':action==='evidence-delete'?'Local evidence record removed.':'Private draft updated.');
   }
   function field(id) {return document.getElementById(id);}
   function numericField(id,fallback=0) {const x=Number(field(id)?.value);return Number.isFinite(x)?Math.max(0,x):fallback;}
@@ -1073,6 +1243,7 @@
   }
   function dispatch(name,button) {
     const id=button.dataset.id,index=Number(button.dataset.index);
+    if(['evidence-save','evidence-clear','evidence-remove-photo','evidence-delete'].includes(name))return editEvidence(name,id);
     if(name==='reload-app')return window.location.reload();
     if(name==='defer-update'){
       workerUpdateReady=false;
@@ -1465,6 +1636,16 @@
     event.preventDefault();dispatch(button.dataset.action,button);
   });
   document.addEventListener('input',event=>{
+    if(event.target.id==='p3c-evidence-note'){
+      const previous=data.evidence.draft.note;
+      data.evidence.draft.note=String(event.target.value||'').slice(0,1200);
+      if(!save())data.evidence.draft.note=previous;
+      const button=app.querySelector('[data-action="evidence-save"]');
+      if(button)button.disabled=!data.evidence.draft.note.trim()&&!data.evidence.draft.photos.length;
+      const clear=app.querySelector('[data-action="evidence-clear"]');
+      if(clear)clear.disabled=!data.evidence.draft.note.trim()&&!data.evidence.draft.photos.length;
+      return;
+    }
     if(event.target.id==='sms-current-location'){
       data.incident.communication.currentLocation=String(event.target.value||'').slice(0,120);
       save();
@@ -1480,6 +1661,13 @@
     if(status)status.textContent='Edited · check again before saving';
   });
   document.addEventListener('change',async event=>{
+    if(event.target.id==='p3c-photo-file'){
+      const files=Array.from(event.target.files||[]);
+      event.target.value='';
+      try {await addEvidencePhotos(files);}
+      catch(err){toast('Photo not saved: '+err.message);}
+      return;
+    }
     if(event.target.dataset?.communicationTemplate && event.target.matches?.('[data-communication-template]')){
       const value=event.target.dataset.communicationTemplate;
       if(SMS_TEMPLATES.some(t=>t.id===value)){data.incident.communication.template=value;update();}

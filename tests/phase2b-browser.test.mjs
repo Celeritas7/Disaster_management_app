@@ -11,7 +11,7 @@ try {({chromium}=createRequire(import.meta.url)('playwright'));}
 catch {/* Browser dependency is installed in CI; local skip only if optional. */}
 const root=process.env.DMA_TEST_ROOT||join(dirname(fileURLToPath(import.meta.url)),'..');
 const prefix='/Disaster_management_app/';
-const files=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','phase2a.css','phase2b.css','service-worker.js','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
+const files=new Set(['index.html','app.js','styles.css','phase1b.css','phase1c.css','phase2a.css','phase2b.css','phase2c.css','service-worker.js','icon.svg','icon-192.png','icon-512.png','manifest.webmanifest']);
 const types={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
 const todayJST=days=>new Date(Date.now()+9*3600000+days*86400000).toISOString().slice(0,10);
 
@@ -114,6 +114,7 @@ test('Phase 2B inventory, legacy checks, real mobile controls, backup and offlin
   await page.evaluate(()=>{const key='disaster-management:v1',record=JSON.parse(localStorage.getItem(key));record.readiness.custom=[];localStorage.setItem(key,JSON.stringify(record));});
   page.once('dialog',dialog=>dialog.accept());
   await page.locator('#import-json').setInputFiles({name:'phase2b-backup.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(before))});
+  await page.getByRole('button',{name:'Replace records with this backup'}).click();
   await page.locator('.bottom-nav [data-page="readiness"]').click();
   assert.match(await page.locator('.p2b-custom-section').innerText(),/Prescription glasses/);
 
@@ -124,7 +125,7 @@ test('Phase 2B inventory, legacy checks, real mobile controls, backup and offlin
   await page.reload({waitUntil:'domcontentloaded',timeout:15000});
   await page.getByRole('heading',{name:'A kit you can actually review.'}).waitFor();
   const offline=await page.evaluate(async()=>({caches:await caches.keys(),record:JSON.parse(localStorage.getItem('disaster-management:v1'))}));
-  assert.ok(offline.caches.includes('disaster-management-app-v8'));
+  assert.ok(offline.caches.includes('disaster-management-app-v9'));
   assert.equal(offline.record.readiness.custom[0].title,'Prescription glasses');
   assert.equal(offline.record.readiness.items.water.quantity,9);
   assert.equal(offline.record.logs[0].note,'Keep me');

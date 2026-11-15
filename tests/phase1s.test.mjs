@@ -132,6 +132,9 @@ function appHarness(initialRaw, {controlled = false, swEnabled = controlled} = {
     const raw = typeof record === 'string' ? record : JSON.stringify(record);
     const target = {id,files:[{size:raw.length,text:async()=>raw}],value:'selected'};
     await listeners.get('change')({target});
+    // Phase 2C stages a non-destructive preview; replacing records is a
+    // separate, explicitly confirmed action.
+    if(app.innerHTML.includes('id="p2c-import-preview"'))click('apply-import');
   };
   return {storage,app,toast,downloads,click,importRecord,workspace,workerListeners,serviceWorker,setConfirm(value){allowErase=value;},get reloads(){return reloads;}};
 }
@@ -139,10 +142,11 @@ function appHarness(initialRaw, {controlled = false, swEnabled = controlled} = {
 test('service worker install reloads all app-shell files from the network', async () => {
   const worker = serviceWorkerHarness();
   await worker.lifecycle('install');
-  assert.equal(worker.preloaded.length,12);
+  assert.equal(worker.preloaded.length,13);
   assert.ok(worker.preloaded.some(item=>item.url===SCOPE+'phase1c.css'));
   assert.ok(worker.preloaded.some(item=>item.url===SCOPE+'phase2a.css'));
   assert.ok(worker.preloaded.some(item=>item.url===SCOPE+'phase2b.css'));
+  assert.ok(worker.preloaded.some(item=>item.url===SCOPE+'phase2c.css'));
   assert.ok(worker.preloaded.every(item => item.url.startsWith(SCOPE) && item.cache === 'reload'));
   assert.equal(worker.skipWaits,1);
 });

@@ -1,0 +1,46 @@
+/* Phase 2C: deliberate permissions, user-controlled backup and local recovery. */
+.p2c-privacy-actions,.p2c-import-controls{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:15px 0 10px}
+.p2c-privacy-actions .btn,.p2c-import-controls .btn{min-height:46px;margin-top:0!important}
+.p2c-permission-status .p1c-setting-row>span{max-width:155px}
+.p2c-location-result{color:#b8d9ff;font-size:12px;line-height:1.6;margin:12px 0;padding:11px 13px;border-radius:11px;border:1px solid #46617f;background:#19293a;overflow-wrap:anywhere}
+.p2c-footnote{font-size:12px!important;line-height:1.6!important;color:#b0a7bb!important}
+.p2c-backup-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin-top:21px}
+.p2c-export-card{display:flex;flex-direction:column;align-items:flex-start;gap:11px;min-width:0;padding:18px;background:#211d2b;border:1px solid #514762;border-radius:15px}
+.p2c-export-card>strong{font-size:15px;color:#eee9f6;line-height:1.45}
+.p2c-export-card>small{font-size:12px;line-height:1.5;color:#b5aaca}
+.p2c-export-card .text-field{width:100%;margin-top:2px}
+.p2c-export-card .text-field label{color:#d3c8e0}
+.p2c-export-card .text-field input,.p2c-preview .text-field input{background:#292436;border-color:#6c5c7e}
+.p2c-export-card .btn{max-width:100%;white-space:normal;min-height:48px;margin-top:auto}
+.p2c-preview{padding:20px;margin:18px 0 22px;border:1px solid #9b895e;border-radius:15px;background:#30291f;min-width:0}
+.p2c-preview-heading{display:flex;gap:15px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap}
+.p2c-preview-heading .btn{margin-top:0}
+.p2c-preview h3{font-size:20px;line-height:1.25;margin:7px 0 3px;color:#fff0d4}
+.p2c-preview-heading p{overflow-wrap:anywhere;margin:3px 0 0}
+.p2c-preview .text-field{max-width:480px;margin:15px 0}
+.p2c-comparison{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:17px 0}
+.p2c-comparison>div{padding:13px;background:#201e25;border:1px solid #665b53;border-radius:11px;min-width:0}
+.p2c-comparison strong{color:#f6eadd;font-size:13px}
+.p2c-comparison p{margin:7px 0 0;font-size:12px;overflow-wrap:anywhere}
+.p2c-warning{font-size:13px!important;color:#ffe0b5!important;border-left:3px solid #d6a65e;padding-left:12px}
+.p2c-preview>.btn-danger{background:#a9434c;border-color:#ee8f8b;color:white;white-space:normal}
+.p2c-sync-status{position:relative;margin-top:20px;padding:17px 18px 16px;border:1px dashed #665b7b;border-radius:13px;background:#1f1c2a}
+.p2c-sync-status>strong{color:#e9dcfa;font-size:14px}
+.p2c-sync-status p{margin:8px 0}
+.p2c-unconnected{display:inline-flex;padding:6px 10px;border-radius:100px;border:1px solid #675875;background:#33283c;color:#d6bde7;font-size:11px;font-weight:700}
+.p2c-tour-permission{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:16px;padding:14px;border:1px solid #5c5072;border-radius:12px;background:#211e2d}
+.p2c-tour-permission p{width:100%;margin:0 0 6px;color:#d3c8df;font-size:12px;line-height:1.6}
+.p2c-tour-permission span{color:#c1e2ff;font-size:12px;line-height:1.5}
+.p2c-tour-permission .btn{min-height:44px}
+@media(max-width:760px){
+  .p2c-backup-controls,.p2c-comparison{grid-template-columns:1fr}
+  .p2c-export-card .btn{margin-top:7px}
+}
+@media(max-width:420px){
+  .p2c-privacy-actions .btn,.p2c-import-controls .btn,.p2c-tour-permission .btn{width:100%}
+  .p2c-preview{padding:14px}
+  .p2c-preview-heading .btn{width:100%}
+  .p2c-export-card{padding:14px}
+  .p2c-preview>.btn-danger{width:100%}
+  .p2c-permission-status .p1c-setting-row>span{max-width:130px}
+}

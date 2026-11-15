@@ -88,7 +88,7 @@ test('Seven onboarding pages support per-step skip and Back without terminating 
     b.click('tour-next');
     assert.match(b.app.innerHTML,new RegExp(`Setup, step ${n} of 7`));
   }
-  assert.match(b.app.innerHTML,/No services or device permissions are connected/);
+  assert.match(b.app.innerHTML,/Browser permission checks and protected-storage requests only run when you tap/);
   b.click('tour-next');
   assert.equal(b.record().tourDone,true);
   assert.equal(b.record().page,'watch');

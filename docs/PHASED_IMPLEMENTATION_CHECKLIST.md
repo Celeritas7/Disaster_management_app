@@ -73,13 +73,13 @@ Status notation: `[x]` completed in the named work branch; `[ ]` pending. A chec
 - [x] **P2-03 · Phase 2B code** Expand ten existing readiness checks into a 14-item go-bag inventory with optional custom extras, preserving the original ten checkmarks and storage key (`RD-03,RD-11,CF-15`).
 - [x] **P2-04 · Phase 2B code** Record personal quantities/targets, expiry/review dates, a separately labeled optional embassy-registration status and prioritized critical gaps (`RD-02,04–09`).
 - [x] **P2-05 · Phase 2B code** Maintain weighted core readiness without automatically counting missing water/cash quantities, expired or overdue records, or edited items awaiting recheck. Clearly separate **marked by user**, **counted ready**, **unknown**, **expired** and **system verified: none** (`RD-07,RD-12,RD-13`).
-- [ ] **P2-06** Make the tour's permission/consent pages functional only for feasible integrations; show manual-only alternatives (`OB-04–10`).
-- [ ] **P2-07** Improve privacy notes and JSON backup/import, with version migrations, restore tests, and no accidental data loss (`SE-16–18,CF-14–15,CF-19`).
-- [ ] **P2-08** Investigate account/secure sync as a separately opt-in later enhancement; do not upload address/contact/document data automatically.
+- [x] **P2-06** Added user-initiated, one-time location and browser storage controls to Settings and tour, with denied/unsupported/manual fallbacks. No automatic permission on first load; other integrations remain unconnected (`OB-04–10`).
+- [x] **P2-07** Preserved v1 schema and legacy JSON import/export, added optional password-encrypted file exports, explicit import preview/apply, one-slot exact-byte recovery with quota checks, rejection of unsupported backups, and Node/Chromium restore tests. No stored-schema bump required; future migrations retain explicit gates (`SE-16–18,CF-14–15,CF-19`).
+- [x] **P2-08** Completed an opt-in secure-sync feasibility and trust-boundary design with future release gates; no accounts, cloud writes or automatic address/contact/document uploads have been enabled.
 
 **Exit gate:** Existing users' v1 records survive; no automatic location/background permission at first load; readiness never claims documents or emergency kit are cached if not.
 
-**Phase 2A implementation report:** [PHASE2A_IMPLEMENTATION_REPORT.md](PHASE2A_IMPLEMENTATION_REPORT.md). Checkmarks mean implemented in a review branch, subject to CI and device acceptance; they do not mean deployed. **Phase 2B** continues P2-03 through P2-05 (go-bag inventory and accurate readiness). **Phase 2C** continues P2-06 through P2-08 (consent, backup/migration, sync investigation).
+**Phase 2A implementation report:** [PHASE2A_IMPLEMENTATION_REPORT.md](PHASE2A_IMPLEMENTATION_REPORT.md). **Phase 2B report:** [PHASE2B_IMPLEMENTATION_REPORT.md](PHASE2B_IMPLEMENTATION_REPORT.md). **Phase 2C report:** [PHASE2C_IMPLEMENTATION_REPORT.md](PHASE2C_IMPLEMENTATION_REPORT.md). Checkmarks mean implemented in a review branch, subject to CI and device acceptance; they do **not** mean deployed. Phase 2C retains all manual/offline functionality; cloud sync remains design-only.
 
 **Phase 2B implementation report:** [PHASE2B_IMPLEMENTATION_REPORT.md](PHASE2B_IMPLEMENTATION_REPORT.md). Phase 2B checkmarks indicate the review-branch implementation only; GitHub Actions Chromium/mobile tests, owner review and real-device acceptance remain separate release gates. The deployed application is untouched by this PR.
 
